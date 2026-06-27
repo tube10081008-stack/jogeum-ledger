@@ -1,6 +1,6 @@
 /* 조금만 가계부 — 서비스워커 (오프라인 캐시)
  * 버전을 올리면 새 캐시로 교체되고 구버전은 삭제된다. */
-const CACHE = "jogeum-v2";
+const CACHE = "jogeum-v3";
 const ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const ASSETS = [
   "./js/mascot.js",
   "./js/gamification.js",
   "./js/views.js",
+  "./js/sync.js",
   "./manifest.webmanifest",
   "./icons/icon.svg"
 ];

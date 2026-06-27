@@ -2,6 +2,7 @@
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot } from "./storage.js";
 import { homeView, historyView, plannedView, questView, addSheet, settingsSheet } from "./views.js";
+import * as sync from "./sync.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const viewEl = $("#view");
@@ -137,6 +138,29 @@ function openSettings({ onboarding = false } = {}) {
     }
   });
 
+  // 클라우드 백업(GitHub Gist)
+  $("#sync-connect", panelEl)?.addEventListener("click", async () => {
+    const token = $("#sync-token", panelEl)?.value || "";
+    if (!token.trim()) return toast("토큰을 붙여넣어 주세요");
+    toast("연결 중…");
+    try {
+      await sync.connect(token);
+      toast("연결됐어요 ☁️ 자동 백업 시작!");
+      openSettings(); render();
+    } catch (e) { toast("연결 실패: " + e.message); }
+  });
+  $("#sync-now", panelEl)?.addEventListener("click", async () => {
+    toast("동기화 중…");
+    try { await sync.syncNow(); toast("동기화 완료 ☁️"); openSettings(); render(); }
+    catch (e) { toast("동기화 실패: " + e.message); }
+  });
+  $("#sync-off", panelEl)?.addEventListener("click", () => {
+    if (confirm("클라우드 연결을 해제할까요? (기기 데이터는 유지, Gist는 남아있어요)")) {
+      sync.disconnect(); toast("연결을 해제했어요"); openSettings();
+    }
+  });
+  updateSyncBadge();
+
   // 마스코트 이미지 업로드/삭제 (기기 로컬에만 저장)
   panelEl.querySelectorAll("[data-msup]").forEach((inp) =>
     inp.addEventListener("change", async () => {
@@ -204,9 +228,29 @@ viewEl.addEventListener("click", (e) => {
   if (r) go(r);
 });
 
+function updateSyncBadge() {
+  const el = $("#sync-badge", panelEl);
+  if (!el) return;
+  const map = { idle: "#54b487", syncing: "#f4c152", error: "#e26d6d", off: "#b9c4c0" };
+  const label = { idle: "동기화됨", syncing: "동기화 중", error: "오류", off: "꺼짐" };
+  el.style.color = map[sync.getStatus()] || "#b9c4c0";
+  el.title = label[sync.getStatus()] || "";
+}
+sync.onStatus(updateSyncBadge);
+
 /* ---------- 시작 ---------- */
+function maybeOnboard() {
+  if (!compute().settings.onboarded) openSettings({ onboarding: true });
+}
+
 render();
-if (!compute().settings.onboarded) openSettings({ onboarding: true });
+sync.start();                       // 변경 자동 업로드 연결
+if (sync.isConfigured()) {
+  // 시작 시 원격과 1회 동기화 → 더 최신 데이터 채택 후 렌더
+  sync.syncNow().then(() => { render(); maybeOnboard(); }).catch(() => maybeOnboard());
+} else {
+  maybeOnboard();
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));

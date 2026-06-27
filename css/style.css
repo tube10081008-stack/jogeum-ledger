@@ -162,6 +162,8 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   background:var(--ink);color:#fff;padding:11px 18px;border-radius:30px;font-size:.88rem;
   font-weight:600;box-shadow:var(--shadow);animation:fade .2s}
 
+.sync-badge{font-size:.7rem;vertical-align:middle}
+
 /* 마스코트 꾸미기 */
 .mascot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .ms-slot{text-align:center}

@@ -52,8 +52,26 @@ export function getMascot() { return load().mascot; }
 export function setMascot(mood, dataURL) { load(); cache.mascot[mood] = dataURL; save(); }
 export function clearMascot(mood) { load(); delete cache.mascot[mood]; save(); }
 
-export function save() {
+// 변경 구독 (동기화 모듈이 사용)
+const listeners = [];
+export function subscribe(fn) { listeners.push(fn); }
+
+export function getUpdatedAt() { return load().updatedAt || 0; }
+
+// touch=true면 변경시각 갱신, silent=true면 구독자에게 알리지 않음(원격에서 받아쓸 때)
+export function save({ touch = true, silent = false } = {}) {
+  if (touch) cache.updatedAt = Date.now();
   localStorage.setItem(KEY, JSON.stringify(cache));
+  if (!silent) listeners.forEach((f) => f());
+}
+
+// 원격(Gist)에서 받은 데이터를 그대로 적용 (시각 보존, 재푸시 유발 안 함)
+export function applyRemote(data) {
+  cache = data;
+  cache.settings = Object.assign(blank().settings, cache.settings);
+  cache.txns = Array.isArray(cache.txns) ? cache.txns : [];
+  cache.mascot = cache.mascot && typeof cache.mascot === "object" ? cache.mascot : {};
+  save({ touch: false, silent: true });
 }
 
 export function setSettings(patch) {

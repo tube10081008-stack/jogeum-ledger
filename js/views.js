@@ -3,6 +3,7 @@ import { won, wonShort, fmtDayLabel, fmtDate, esc, todayISO } from "./format.js"
 import { CATEGORIES, catOf } from "./storage.js";
 import { mascot, mascotSVG, mascotState, MOODS } from "./mascot.js";
 import { getMascot } from "./storage.js";
+import { info as syncInfo } from "./sync.js";
 import { gameStats } from "./gamification.js";
 
 /* ---------- 홈 ---------- */
@@ -197,6 +198,38 @@ export function addSheet({ type = "expense", planned = false, edit = null } = {}
   ${edit ? `<button class="btn danger" id="f-del" style="margin-top:10px">삭제</button>` : ""}`;
 }
 
+/* ---------- 클라우드 백업(GitHub Gist) 섹션 ---------- */
+function cloudSection() {
+  const s = syncInfo();
+  if (s.configured) {
+    const last = s.lastSync ? new Date(s.lastSync).toLocaleString("ko-KR") : "아직 없음";
+    return `
+      <div class="card__title" style="margin-bottom:4px">클라우드 백업 · GitHub <span id="sync-badge" class="sync-badge">●</span></div>
+      <div class="muted" style="font-size:.76rem;margin-bottom:10px">
+        연결됨 — 기록할 때마다 비공개 Gist에 자동 저장돼요.<br>마지막 동기화: <b>${last}</b>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="sync-now">지금 동기화</button>
+        <button class="btn ghost" id="sync-off">연결 해제</button>
+      </div>`;
+  }
+  return `
+    <div class="card__title" style="margin-bottom:4px">클라우드 백업 · GitHub (선택)</div>
+    <div class="muted" style="font-size:.76rem;margin-bottom:10px">
+      비공개 Gist에 자동 백업하면 <b>캐시 삭제·기기 변경에도</b> 데이터가 안전해요.
+      토큰은 이 기기에만 저장되고 저장소엔 올라가지 않아요.
+    </div>
+    <ol class="muted" style="font-size:.76rem;margin:0 0 10px 18px;line-height:1.7">
+      <li><a class="link" href="https://github.com/settings/tokens/new?scopes=gist&description=조금만가계부" target="_blank" rel="noopener">이 링크</a>로 토큰 생성 (scope <b>gist</b>만 체크)</li>
+      <li>생성된 <b>ghp_…</b> 토큰을 아래에 붙여넣고 연결</li>
+    </ol>
+    <div class="field">
+      <input class="input" id="sync-token" type="password" placeholder="ghp_… 토큰 붙여넣기"
+        autocomplete="off" />
+    </div>
+    <button class="btn primary" id="sync-connect">연결하기</button>`;
+}
+
 /* ---------- 바텀시트: 온보딩 / 설정 ---------- */
 export function settingsSheet(c, { onboarding = false } = {}) {
   return `
@@ -233,6 +266,8 @@ export function settingsSheet(c, { onboarding = false } = {}) {
         </div>`;
       }).join("")}
     </div>
+    <hr class="soft"/>
+    ${cloudSection()}
     <hr class="soft"/>
     <div class="card__title" style="margin-bottom:8px">데이터 (1인용 · 기기에만 저장)</div>
     <div class="row">
