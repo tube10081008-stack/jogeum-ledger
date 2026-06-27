@@ -27,10 +27,25 @@ const blank = () => ({
     yearGoal: 0,            // 올해 목표 저축액
     startBalance: 0,        // 연초 시작 잔액
     year: new Date().getFullYear(),
+    monthlyBudget: 0,       // 월 지출 예산 (오늘 쓸 수 있는 돈 계산용)
+    budgets: {},            // 카테고리별 월 봉투 예산 {catId: 금액}
     onboarded: false,
   },
-  txns: [],                 // {id,date,type,amount,category,memo,planned}
+  txns: [],                 // {id,date,type,amount,category,memo,planned,rid,period}
+  jars: [],                 // 저금통(추가 목표) {id,name,emoji,target,saved}
+  recurring: [],            // 반복 거래 {id,type,amount,category,memo,day,active,createdAt}
 });
+
+// 불러온 데이터에 빠진 필드 보강 (load/applyRemote/import 공통)
+function normalize(c) {
+  c.settings = Object.assign(blank().settings, c.settings);
+  if (!c.settings.budgets || typeof c.settings.budgets !== "object") c.settings.budgets = {};
+  c.txns = Array.isArray(c.txns) ? c.txns : [];
+  c.mascot = c.mascot && typeof c.mascot === "object" ? c.mascot : {};
+  c.jars = Array.isArray(c.jars) ? c.jars : [];
+  c.recurring = Array.isArray(c.recurring) ? c.recurring : [];
+  return c;
+}
 
 let cache = null;
 
@@ -41,10 +56,7 @@ export function load() {
   } catch {
     cache = blank();
   }
-  cache.settings = Object.assign(blank().settings, cache.settings);
-  cache.txns = Array.isArray(cache.txns) ? cache.txns : [];
-  cache.mascot = cache.mascot && typeof cache.mascot === "object" ? cache.mascot : {};
-  return cache;
+  return normalize(cache);
 }
 
 // 마스코트 커스텀 이미지(기분별) — 사용자가 올린 이미지는 이 기기에만 저장됨
@@ -67,10 +79,7 @@ export function save({ touch = true, silent = false } = {}) {
 
 // 원격(Gist)에서 받은 데이터를 그대로 적용 (시각 보존, 재푸시 유발 안 함)
 export function applyRemote(data) {
-  cache = data;
-  cache.settings = Object.assign(blank().settings, cache.settings);
-  cache.txns = Array.isArray(cache.txns) ? cache.txns : [];
-  cache.mascot = cache.mascot && typeof cache.mascot === "object" ? cache.mascot : {};
+  cache = normalize(data);
   save({ touch: false, silent: true });
 }
 
@@ -102,10 +111,69 @@ export function exportJSON() {
 export function importJSON(text) {
   const data = JSON.parse(text);
   if (!data || !Array.isArray(data.txns)) throw new Error("형식이 올바르지 않습니다");
-  cache = data;
-  cache.settings = Object.assign(blank().settings, cache.settings);
-  cache.mascot = cache.mascot && typeof cache.mascot === "object" ? cache.mascot : {};
+  cache = normalize(data);
   save();
+}
+
+/* ---------- 봉투 예산 ---------- */
+export function setBudget(catId, amount) {
+  load();
+  if (amount > 0) cache.settings.budgets[catId] = amount;
+  else delete cache.settings.budgets[catId];
+  save();
+}
+
+/* ---------- 저금통(추가 목표) ---------- */
+export function addJar(j) { load(); cache.jars.push({ id: crypto.randomUUID(), saved: 0, ...j }); save(); }
+export function updateJar(id, patch) {
+  load(); const j = cache.jars.find((x) => x.id === id);
+  if (j) { Object.assign(j, patch); save(); }
+}
+export function depositJar(id, amount) {
+  load(); const j = cache.jars.find((x) => x.id === id);
+  if (j) { j.saved = Math.max(0, (j.saved || 0) + amount); save(); }
+}
+export function removeJar(id) { load(); cache.jars = cache.jars.filter((x) => x.id !== id); save(); }
+
+/* ---------- 반복 거래 ---------- */
+export function addRecurring(r) {
+  load();
+  cache.recurring.push({ id: crypto.randomUUID(), active: true, createdAt: new Date().toISOString().slice(0, 10), ...r });
+  save();
+}
+export function removeRecurring(id) { load(); cache.recurring = cache.recurring.filter((x) => x.id !== id); save(); }
+export function toggleRecurring(id) {
+  load(); const r = cache.recurring.find((x) => x.id === id);
+  if (r) { r.active = !r.active; save(); }
+}
+
+// 반복 규칙을 실제 거래로 생성(중복 방지: rid+period). 생성 건수 반환.
+export function materializeRecurring(todayISO) {
+  load();
+  let made = 0;
+  const today = new Date(todayISO + "T00:00:00");
+  for (const r of cache.recurring) {
+    if (!r.active) continue;
+    const start = new Date((r.createdAt || todayISO) + "T00:00:00");
+    let y = start.getFullYear(), m = start.getMonth();
+    while (y < today.getFullYear() || (y === today.getFullYear() && m <= today.getMonth())) {
+      const period = `${y}-${String(m + 1).padStart(2, "0")}`;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const day = Math.min(r.day || 1, lastDay);
+      const date = `${period}-${String(day).padStart(2, "0")}`;
+      if (new Date(date + "T00:00:00") <= today &&
+          !cache.txns.some((t) => t.rid === r.id && t.period === period)) {
+        cache.txns.push({
+          id: crypto.randomUUID(), date, type: r.type, amount: r.amount,
+          category: r.category, memo: r.memo || "", planned: false, rid: r.id, period,
+        });
+        made++;
+      }
+      m++; if (m > 11) { m = 0; y++; }
+    }
+  }
+  if (made) save();
+  return made;
 }
 export function resetAll() {
   cache = blank();

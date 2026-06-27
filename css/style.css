@@ -164,6 +164,53 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
 .sync-badge{font-size:.7rem;vertical-align:middle}
 
+/* 오늘 쓸 수 있는 돈 */
+.allow__big{font-size:2.2rem;font-weight:800;color:var(--mint-d);margin:2px 0 8px}
+.allow--over{background:#fff5f3}
+
+/* 저금통 */
+.jar{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.jar:first-of-type{border-top:none}
+.jar__emoji{width:42px;height:42px;border-radius:12px;background:#f2f6f3;display:grid;place-items:center;font-size:1.3rem;flex:none}
+.jar__body{flex:1;min-width:0}
+.jar__top{display:flex;justify-content:space-between;font-size:.9rem}
+
+/* 봉투 예산 입력 */
+.env-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.env-row__c{flex:none;width:96px;font-size:.85rem}
+.env-row__i{flex:1;text-align:right;padding:10px;font-weight:600}
+
+/* 분석: 도넛 */
+.donut-wrap{position:relative;width:160px;margin:4px auto 12px}
+.donut-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.legend__i{font-size:.8rem;display:flex;align-items:center;gap:5px}
+.legend__i .dot{width:10px;height:10px;border-radius:3px;flex:none}
+
+/* 분석: 추이 막대 */
+.trend{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;height:110px}
+.trend__col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.trend__bar{width:70%;min-height:3px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--mint),var(--mint-d))}
+.trend__lbl{font-size:.7rem;color:var(--ink-soft);margin-top:5px}
+
+/* 분석: 히트맵 */
+.hm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.hm-dow{text-align:center;font-size:.66rem;color:var(--ink-soft);padding-bottom:2px}
+.hm-cell{aspect-ratio:1;border-radius:6px;display:grid;place-items:center;font-size:.66rem;color:var(--ink-soft);background:#eef1ee}
+.hm-empty{background:transparent}
+.hm-0{background:#eef1ee}
+.hm-1{background:#d6efe0}.hm-2{background:#a9e0c2}.hm-3{background:#7ed6a7;color:#fff}
+.hm-4{background:#54b487;color:#fff}
+
+/* 분석: 리포트 */
+.report{display:flex;gap:10px;align-items:center}
+.report .mascot{flex:none;animation:none}
+
+/* 반복거래 삭제 */
+.recur-x{width:24px;height:24px;border-radius:50%;background:#f2f6f3;color:var(--ink-soft);font-size:.7rem;flex:none;margin-left:6px}
+
+/* 마스코트 꾸미기 */
+
 /* 마스코트 꾸미기 */
 .mascot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .ms-slot{text-align:center}

@@ -1,7 +1,8 @@
 // 앱 오케스트레이터 — 라우팅 / 렌더 / 이벤트 / PWA 등록
 import { compute } from "./state.js";
-import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot } from "./storage.js";
-import { homeView, historyView, plannedView, questView, addSheet, settingsSheet } from "./views.js";
+import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
+  setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring } from "./storage.js";
+import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet } from "./views.js";
 import * as sync from "./sync.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -10,7 +11,7 @@ const sheetEl = $("#sheet");
 const panelEl = $("#sheet-panel");
 
 let route = "home";
-const ROUTES = { home: homeView, history: historyView, planned: plannedView, quest: questView };
+const ROUTES = { home: homeView, history: historyView, planned: plannedView, insights: insightsView, quest: questView };
 
 function render() {
   const c = compute();
@@ -115,6 +116,22 @@ function openSettings({ onboarding = false } = {}) {
     closeSheet(); render();
   });
 
+  // 예산(월 예산 + 카테고리 봉투)
+  $("#s-budget", panelEl)?.addEventListener("input", () => {
+    const n = numFrom($("#s-budget", panelEl).value);
+    $("#s-budget", panelEl).value = n ? n.toLocaleString("ko-KR") : "";
+  });
+  panelEl.querySelectorAll("[data-budget]").forEach((el) =>
+    el.addEventListener("input", () => {
+      const n = numFrom(el.value);
+      el.value = n ? n.toLocaleString("ko-KR") : "";
+    }));
+  $("#s-budget-save", panelEl)?.addEventListener("click", () => {
+    setSettings({ monthlyBudget: numFrom($("#s-budget", panelEl)?.value) });
+    panelEl.querySelectorAll("[data-budget]").forEach((el) => setBudget(el.dataset.budget, numFrom(el.value)));
+    toast("예산을 저장했어요"); closeSheet(); render();
+  });
+
   // 데이터 백업/복원/초기화
   $("#s-export", panelEl)?.addEventListener("click", () => {
     const blob = new Blob([exportJSON()], { type: "application/json" });
@@ -181,6 +198,83 @@ function openSettings({ onboarding = false } = {}) {
     }));
 }
 
+/* ---------- 저금통 시트 ---------- */
+function openJarNew() {
+  openSheet(jarSheet());
+  let emoji = "🐖";
+  panelEl.querySelectorAll("#j-emoji .chip").forEach((ch) =>
+    ch.addEventListener("click", () => {
+      panelEl.querySelectorAll("#j-emoji .chip").forEach((x) => x.classList.remove("on"));
+      ch.classList.add("on"); emoji = ch.dataset.emoji;
+    }));
+  const tgt = $("#j-target", panelEl);
+  tgt?.addEventListener("input", () => { const n = numFrom(tgt.value); tgt.value = n ? n.toLocaleString("ko-KR") : ""; });
+  $("#j-create", panelEl)?.addEventListener("click", () => {
+    const name = $("#j-name", panelEl)?.value.trim();
+    const target = numFrom(tgt?.value);
+    if (!name) return toast("이름을 입력해주세요");
+    if (target <= 0) return toast("목표 금액을 입력해주세요");
+    addJar({ name, emoji, target });
+    toast("저금통을 만들었어요 🐖"); closeSheet(); render();
+  });
+}
+
+function openJar(jar) {
+  openSheet(jarSheet(jar));
+  const amt = $("#j-amt", panelEl);
+  amt?.addEventListener("input", () => { const n = numFrom(amt.value); amt.value = n ? n.toLocaleString("ko-KR") : ""; });
+  const move = (sign) => {
+    const v = numFrom(amt?.value);
+    if (v <= 0) return toast("금액을 입력해주세요");
+    depositJar(jar.id, sign * v);
+    toast(sign > 0 ? "넣었어요 💰" : "뺐어요"); closeSheet(); render();
+  };
+  $("#j-deposit", panelEl)?.addEventListener("click", () => move(1));
+  $("#j-withdraw", panelEl)?.addEventListener("click", () => move(-1));
+  $("#j-del", panelEl)?.addEventListener("click", () => {
+    if (confirm("이 저금통을 삭제할까요?")) { removeJar(jar.id); toast("삭제했어요"); closeSheet(); render(); }
+  });
+}
+
+/* ---------- 반복 거래 시트 ---------- */
+function openRecurring() {
+  openSheet(recurringSheet());
+  const amt = $("#r-amount", panelEl);
+  amt?.addEventListener("input", () => { const n = numFrom(amt.value); amt.value = n ? n.toLocaleString("ko-KR") : ""; });
+  // 지출/수입 토글 → 분류 칩 교체
+  panelEl.querySelectorAll("#r-type button").forEach((b) =>
+    b.addEventListener("click", () => {
+      panelEl.querySelectorAll("#r-type button").forEach((x) => x.classList.remove("on", "exp", "inc"));
+      b.classList.add("on", b.dataset.type === "expense" ? "exp" : "inc");
+      const cats = (b.dataset.type === "income")
+        ? [["salary","💼 월급"],["side","💡 부수입"],["gift","🎁 용돈/선물"],["etc_i","✏️ 기타"]]
+        : [["food","🍚 식비"],["cafe","☕ 카페/간식"],["transport","🚌 교통"],["shopping","🛍️ 쇼핑"],["fun","🎮 여가"],["health","💊 건강"],["home","🏠 생활/주거"],["etc_e","✏️ 기타"]];
+      $("#r-cats", panelEl).innerHTML = cats.map(([id, lbl]) => `<button class="chip" data-cat="${id}">${lbl}</button>`).join("");
+      wireCatChips();
+    }));
+  function wireCatChips() {
+    panelEl.querySelectorAll("#r-cats .chip").forEach((ch) =>
+      ch.addEventListener("click", () => {
+        panelEl.querySelectorAll("#r-cats .chip").forEach((x) => x.classList.remove("on"));
+        ch.classList.add("on");
+      }));
+  }
+  wireCatChips();
+  $("#r-save", panelEl)?.addEventListener("click", () => {
+    const type = panelEl.querySelector("#r-type .on")?.dataset.type || "expense";
+    const amount = numFrom(amt?.value);
+    const category = panelEl.querySelector("#r-cats .chip.on")?.dataset.cat || "";
+    const day = Math.max(1, Math.min(31, parseInt($("#r-day", panelEl)?.value) || 1));
+    const memo = $("#r-memo", panelEl)?.value.trim() || "";
+    if (amount <= 0) return toast("금액을 입력해주세요");
+    if (!category) return toast("분류를 선택해주세요");
+    addRecurring({ type, amount, category, day, memo });
+    const n = materializeRecurring(new Date().toISOString().slice(0, 10));
+    toast(n ? `추가했어요 · ${n}건 자동 기록` : "반복 거래를 추가했어요");
+    closeSheet(); render();
+  });
+}
+
 // 이미지를 정사각형 캔버스로 축소 → 데이터URL (localStorage 절약)
 function compressImage(file, max = 200) {
   return new Promise((resolve, reject) => {
@@ -221,9 +315,28 @@ viewEl.addEventListener("click", (e) => {
     if (t) openAdd({ edit: t });
     return;
   }
+  const recurDel = e.target.closest("[data-recur-del]");
+  if (recurDel) {
+    if (confirm("이 반복 거래를 삭제할까요? (이미 만들어진 기록은 유지돼요)")) {
+      removeRecurring(recurDel.dataset.recurDel); toast("삭제했어요"); render();
+    }
+    return;
+  }
+  const recur = e.target.closest("[data-recur]");
+  if (recur) { toggleRecurring(recur.dataset.recur); toast("반복 상태를 변경했어요"); render(); return; }
+
+  const jar = e.target.closest("[data-jar]");
+  if (jar) {
+    const j = compute().jars.find((x) => x.id === jar.dataset.jar);
+    if (j) openJar(j);
+    return;
+  }
+
   const act = e.target.closest("[data-act]")?.dataset.act;
   if (act === "settings") return openSettings();
   if (act === "add-planned") return openAdd({ type: "expense", planned: true });
+  if (act === "add-jar") return openJarNew();
+  if (act === "add-recurring") return openRecurring();
   const r = e.target.closest("[data-route]")?.dataset.route;
   if (r) go(r);
 });
@@ -243,11 +356,15 @@ function maybeOnboard() {
   if (!compute().settings.onboarded) openSettings({ onboarding: true });
 }
 
+materializeRecurring(new Date().toISOString().slice(0, 10));  // 반복 거래 자동 생성
 render();
 sync.start();                       // 변경 자동 업로드 연결
 if (sync.isConfigured()) {
   // 시작 시 원격과 1회 동기화 → 더 최신 데이터 채택 후 렌더
-  sync.syncNow().then(() => { render(); maybeOnboard(); }).catch(() => maybeOnboard());
+  sync.syncNow().then(() => {
+    materializeRecurring(new Date().toISOString().slice(0, 10));
+    render(); maybeOnboard();
+  }).catch(() => maybeOnboard());
 } else {
   maybeOnboard();
 }

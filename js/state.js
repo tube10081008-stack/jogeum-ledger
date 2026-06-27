@@ -3,7 +3,7 @@ import { load } from "./storage.js";
 import { todayISO, monthKey, yearKey, daysBetween, toISO } from "./format.js";
 
 export function compute() {
-  const { settings, txns } = load();
+  const { settings, txns, jars, recurring } = load();
   const year = String(settings.year);
   const today = todayISO();
   const thisMonth = monthKey(today);
@@ -41,13 +41,31 @@ export function compute() {
   const daysLeftInYear = daysBetween(today, `${year}-12-31`);
   const remainingToGoal = Math.max(0, goal - saved);
 
+  // 오늘 쓸 수 있는 돈 (월 예산 기준)
+  const d = new Date(today + "T00:00:00");
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  const daysLeftInMonth = daysInMonth - d.getDate() + 1;     // 오늘 포함
+  const monthlyBudget = settings.monthlyBudget || 0;
+  const budgetLeft = monthlyBudget > 0 ? monthlyBudget - mOut : 0;
+  const todayAllowance = monthlyBudget > 0 ? Math.max(0, budgetLeft) / daysLeftInMonth : 0;
+
+  // 카테고리별 봉투 사용량 (이번 달)
+  const budgets = settings.budgets || {};
+  const envelopes = Object.keys(budgets).map((cat) => {
+    const limit = budgets[cat];
+    const spent = actual.filter((t) => t.type === "expense" && t.category === cat &&
+      monthKey(t.date) === thisMonth).reduce((s, t) => s + t.amount, 0);
+    return { cat, limit, spent, ratio: limit > 0 ? spent / limit : 0 };
+  }).sort((a, b) => b.ratio - a.ratio);
+
   return {
-    settings, txns, actual, planned,
+    settings, txns, actual, planned, jars: jars || [], recurring: recurring || [],
     year, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,
     mIn, mOut, mNet, monthlyTarget, monthPace,
     upcoming, plInRaw, plOutRaw, projected,
     loggedDays, streak, daysLeftInYear,
+    monthlyBudget, budgetLeft, todayAllowance, daysLeftInMonth, daysInMonth, envelopes,
   };
 }
 
