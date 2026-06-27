@@ -1,0 +1,166 @@
+/* ===== 조금만 가계부 — 디자인 토큰 ===== */
+:root{
+  --mint:#7ed6a7;       /* 마스코트 민트 */
+  --mint-d:#54b487;
+  --cream:#fdfaf3;
+  --ink:#2f3a38;
+  --ink-soft:#6b7a76;
+  --line:#ece6da;
+  --card:#ffffff;
+  --income:#2f9e6e;
+  --expense:#e26d6d;
+  --gold:#f4c152;
+  --shadow:0 6px 18px rgba(60,80,72,.10);
+  --radius:18px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",
+    "Malgun Gothic",system-ui,sans-serif;
+  background:var(--cream); color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+[hidden]{display:none !important}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative}
+
+/* ===== 뷰 영역 ===== */
+.view{padding:18px 16px calc(110px + var(--safe-b));}
+.screen-title{font-size:1.35rem;font-weight:800;margin:4px 0 14px}
+.muted{color:var(--ink-soft)}
+.center{text-align:center}
+
+/* ===== 카드 ===== */
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:16px;margin-bottom:14px}
+.card__head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.card__title{font-weight:700;font-size:.95rem}
+
+/* ===== 마스코트 ===== */
+.mascot-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin:6px 0 2px}
+.mascot{width:140px;height:140px;filter:drop-shadow(0 8px 10px rgba(80,120,100,.18));
+  animation:bob 3.4s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.mascot-bubble{background:#fff;border:2px solid var(--line);border-radius:16px;
+  padding:9px 14px;font-size:.92rem;font-weight:600;max-width:90%;text-align:center;
+  box-shadow:var(--shadow);position:relative}
+.mascot-bubble::after{content:"";position:absolute;bottom:-9px;left:50%;transform:translateX(-50%);
+  border:8px solid transparent;border-top-color:#fff}
+
+/* ===== 진행 링 ===== */
+.ring{--p:0;width:200px;height:200px;border-radius:50%;margin:8px auto;position:relative;
+  background:conic-gradient(var(--mint) calc(var(--p)*1%), #eef1ee 0);
+  display:grid;place-items:center;transition:background .6s ease}
+.ring::before{content:"";position:absolute;inset:16px;border-radius:50%;background:var(--card)}
+.ring__in{position:relative;text-align:center}
+.ring__pct{font-size:2rem;font-weight:800;line-height:1}
+.ring__lbl{font-size:.78rem;color:var(--ink-soft);margin-top:3px}
+
+/* ===== 통계 그리드 ===== */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--card);border-radius:14px;padding:12px;box-shadow:var(--shadow);text-align:center}
+.stat__v{font-weight:800;font-size:1.05rem}
+.stat__l{font-size:.74rem;color:var(--ink-soft);margin-top:3px}
+.pos{color:var(--income)} .neg{color:var(--expense)}
+
+/* 월 진행 바 */
+.bar{height:12px;border-radius:8px;background:#eef1ee;overflow:hidden;margin-top:8px}
+.bar__fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--mint),var(--mint-d));
+  transition:width .5s ease}
+.bar__fill.over{background:linear-gradient(90deg,#f0a35a,var(--expense))}
+
+/* ===== 거래 리스트 ===== */
+.tx-day{margin-bottom:6px}
+.tx-day__h{display:flex;justify-content:space-between;font-size:.78rem;color:var(--ink-soft);
+  padding:10px 4px 6px;font-weight:600}
+.tx{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;
+  padding:12px;margin-bottom:8px;box-shadow:var(--shadow)}
+.tx__ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  font-size:1.2rem;background:#f2f6f3;flex:none}
+.tx__body{flex:1;min-width:0}
+.tx__cat{font-weight:700;font-size:.95rem}
+.tx__memo{font-size:.78rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx__amt{font-weight:800;white-space:nowrap}
+.tx.planned{opacity:.78;border:1.5px dashed var(--line)}
+.tx__tag{font-size:.66rem;background:var(--gold);color:#5a4500;border-radius:6px;padding:1px 6px;
+  margin-left:6px;font-weight:700;vertical-align:middle}
+
+/* ===== 도전(게이미피케이션) ===== */
+.level{display:flex;align-items:center;gap:14px}
+.level__badge{width:62px;height:62px;border-radius:18px;flex:none;display:grid;place-items:center;
+  font-size:1.6rem;font-weight:800;color:#5a4500;
+  background:radial-gradient(circle at 30% 25%,#ffe6a0,var(--gold))}
+.level__info{flex:1}
+.xpbar{height:10px;border-radius:6px;background:#eef1ee;overflow:hidden;margin-top:7px}
+.xpbar__fill{height:100%;background:linear-gradient(90deg,var(--gold),#f0a35a);transition:width .5s}
+.badges{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px}
+.badge{text-align:center;font-size:.7rem;color:var(--ink-soft)}
+.badge__ic{width:100%;aspect-ratio:1;border-radius:16px;display:grid;place-items:center;
+  font-size:1.5rem;background:#f2f6f3;margin-bottom:5px}
+.badge.on .badge__ic{background:radial-gradient(circle at 30% 25%,#fff0c8,var(--gold))}
+.badge.on{color:var(--ink);font-weight:600}
+.badge.locked .badge__ic{filter:grayscale(1);opacity:.45}
+
+/* ===== FAB ===== */
+.fab{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(70px + var(--safe-b));z-index:30;
+  width:62px;height:62px;border-radius:50%;font-size:2rem;color:#fff;font-weight:300;
+  background:linear-gradient(135deg,var(--mint),var(--mint-d));
+  box-shadow:0 8px 20px rgba(84,180,135,.45);max-width:480px}
+.fab:active{transform:translateX(-50%) scale(.92)}
+
+/* ===== 하단 네비 ===== */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
+  z-index:20;display:flex;background:#fff;border-top:1px solid var(--line);
+  padding-bottom:var(--safe-b)}
+.nav__btn{flex:1;padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:2px;
+  font-size:.7rem;color:var(--ink-soft)}
+.nav__btn.active{color:var(--mint-d);font-weight:700}
+.nav__ico{font-size:1.25rem}
+
+/* ===== 바텀시트 ===== */
+.sheet{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet__scrim{position:absolute;inset:0;background:rgba(30,40,36,.45);animation:fade .2s}
+.sheet__panel{position:relative;width:100%;max-width:480px;background:var(--cream);
+  border-radius:24px 24px 0 0;padding:18px 16px calc(20px + var(--safe-b));
+  max-height:92vh;overflow:auto;animation:rise .25s ease}
+@keyframes rise{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet__title{font-weight:800;font-size:1.1rem;margin:2px 0 14px;text-align:center}
+
+/* ===== 폼 ===== */
+.seg{display:flex;background:#eef1ee;border-radius:12px;padding:4px;margin-bottom:14px}
+.seg button{flex:1;padding:10px;border-radius:9px;font-weight:700;color:var(--ink-soft)}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.seg button.on.inc{color:var(--income)} .seg button.on.exp{color:var(--expense)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.8rem;font-weight:600;margin-bottom:6px;color:var(--ink-soft)}
+.input{width:100%;padding:14px;border:1.5px solid var(--line);border-radius:12px;font-size:1rem;
+  background:#fff;color:var(--ink)}
+.input.amount{font-size:1.6rem;font-weight:800;text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:9px 13px;border-radius:11px;background:#fff;border:1.5px solid var(--line);
+  font-size:.85rem;font-weight:600}
+.chip.on{background:var(--mint);border-color:var(--mint);color:#fff}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.btn{width:100%;padding:15px;border-radius:14px;font-weight:800;font-size:1rem}
+.btn.primary{background:linear-gradient(135deg,var(--mint),var(--mint-d));color:#fff}
+.btn.ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink-soft)}
+.btn.danger{background:#fff;border:1.5px solid var(--expense);color:var(--expense)}
+.btn:active{transform:scale(.98)}
+
+/* 빈 상태 */
+.empty{text-align:center;color:var(--ink-soft);padding:40px 10px}
+.empty .mascot{width:96px;height:96px;animation:none;opacity:.8}
+
+/* 토스트 */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:140px;z-index:60;
+  background:var(--ink);color:#fff;padding:11px 18px;border-radius:30px;font-size:.88rem;
+  font-weight:600;box-shadow:var(--shadow);animation:fade .2s}
+
+hr.soft{border:none;border-top:1px solid var(--line);margin:14px 0}
+.link{color:var(--mint-d);font-weight:700;font-size:.85rem}

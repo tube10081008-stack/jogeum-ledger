@@ -1,0 +1,15 @@
+{
+  "name": "조금만 가계부",
+  "short_name": "조금만",
+  "description": "저축과 소비통제를 돕는 1인용 게이미피케이션 가계부",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdfaf3",
+  "theme_color": "#7ed6a7",
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

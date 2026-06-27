@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#7ed6a7" />
+  <title>조금만 가계부</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/icon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="조금만 가계부" />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <main id="view" class="view"></main>
+
+    <button id="fab" class="fab" aria-label="기입하기">＋</button>
+
+    <nav id="nav" class="nav">
+      <button class="nav__btn" data-route="home"><span class="nav__ico">🏠</span><span>홈</span></button>
+      <button class="nav__btn" data-route="history"><span class="nav__ico">📒</span><span>내역</span></button>
+      <button class="nav__btn" data-route="planned"><span class="nav__ico">📅</span><span>예정</span></button>
+      <button class="nav__btn" data-route="quest"><span class="nav__ico">🏆</span><span>도전</span></button>
+    </nav>
+  </div>
+
+  <!-- 바텀시트 (입력/설정 등) -->
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet__scrim" data-close></div>
+    <div class="sheet__panel" id="sheet-panel"></div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
