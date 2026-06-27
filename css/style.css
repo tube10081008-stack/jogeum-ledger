@@ -206,6 +206,15 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .report{display:flex;gap:10px;align-items:center}
 .report .mascot{flex:none;animation:none}
 
+/* 환산 동기부여 */
+.convert{font-size:.78rem;color:var(--expense);font-weight:600;margin-top:6px;min-height:1em;text-align:right}
+
+/* 미래 시뮬레이터 */
+.sim-row{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:4px}
+.sim-row b{color:var(--mint-d)}
+.sim-range{width:100%;accent-color:var(--mint-d);margin:2px 0 12px}
+.sim-out{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
 /* 반복거래 삭제 */
 .recur-x{width:24px;height:24px;border-radius:50%;background:#f2f6f3;color:var(--ink-soft);font-size:.7rem;flex:none;margin-left:6px}
 

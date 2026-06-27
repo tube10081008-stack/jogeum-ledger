@@ -41,6 +41,33 @@ export function compute() {
   const daysLeftInYear = daysBetween(today, `${year}-12-31`);
   const remainingToGoal = Math.max(0, goal - saved);
 
+  // 무지출 챌린지: 지출이 0원인 날
+  const expenseDays = new Set(actual.filter((t) => t.type === "expense").map((t) => t.date));
+  const firstDay = [...new Set(actual.map((t) => t.date))].sort()[0];
+  let noSpendStreak = 0, bestNoSpend = 0, noSpendThisMonth = 0;
+  if (firstDay) {
+    // 오늘부터 거슬러 연속 무지출
+    for (let d = today; d >= firstDay && !expenseDays.has(d); d = shiftDay(d, -1)) noSpendStreak++;
+    // 최고 기록 + 이번 달 무지출 일수
+    let run = 0;
+    for (let d = firstDay; d <= today; d = shiftDay(d, 1)) {
+      if (!expenseDays.has(d)) { run++; bestNoSpend = Math.max(bestNoSpend, run); } else run = 0;
+      if (monthKey(d) === thisMonth && !expenseDays.has(d)) noSpendThisMonth++;
+    }
+  }
+
+  // 미래 시뮬레이터용 월평균 (기록 있는 달 기준)
+  const mMap = {};
+  for (const t of actual) {
+    const k = monthKey(t.date);
+    (mMap[k] = mMap[k] || { inc: 0, exp: 0 })[t.type === "income" ? "inc" : "exp"] += t.amount;
+  }
+  const mks = Object.keys(mMap);
+  const nM = mks.length || 1;
+  const avgMonthlyIncome = mks.reduce((s, k) => s + mMap[k].inc, 0) / nM;
+  const avgMonthlyExpense = mks.reduce((s, k) => s + mMap[k].exp, 0) / nM;
+  const monthsLeft = Math.max(0, 12 - (new Date(today + "T00:00:00").getMonth() + 1));
+
   // 오늘 쓸 수 있는 돈 (월 예산 기준)
   const d = new Date(today + "T00:00:00");
   const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -66,7 +93,16 @@ export function compute() {
     upcoming, plInRaw, plOutRaw, projected,
     loggedDays, streak, daysLeftInYear,
     monthlyBudget, budgetLeft, todayAllowance, daysLeftInMonth, daysInMonth, envelopes,
+    noSpendStreak, bestNoSpend, noSpendThisMonth,
+    avgMonthlyIncome, avgMonthlyExpense, monthsLeft,
   };
+}
+
+// 날짜 ISO를 delta일 이동
+function shiftDay(iso, delta) {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  return toISO(d);
 }
 
 function sum(arr, year, type) {

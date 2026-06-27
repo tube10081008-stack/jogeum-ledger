@@ -183,6 +183,20 @@ export function questView(c) {
     </div>
   </div>
   <div class="card">
+    <div class="card__head"><span class="card__title">🚯 무지출 챌린지</span>
+      <span class="muted" style="font-size:.78rem">최고 ${c.bestNoSpend || 0}일</span></div>
+    <div class="grid3">
+      <div class="stat"><div class="stat__v ${c.noSpendStreak > 0 ? "pos" : ""}">${c.noSpendStreak || 0}일</div><div class="stat__l">연속 무지출</div></div>
+      <div class="stat"><div class="stat__v">${c.noSpendThisMonth || 0}일</div><div class="stat__l">이번 달</div></div>
+      <div class="stat"><div class="stat__v">${c.bestNoSpend || 0}일</div><div class="stat__l">최고 기록</div></div>
+    </div>
+    <div class="muted" style="font-size:.78rem;margin-top:8px">${
+      c.noSpendStreak > 0 ? `오늘까지 ${c.noSpendStreak}일째 지출 0원! 조구미가 신났어요 🎉`
+        : "지출 없는 하루를 만들어 무지출 잔디를 심어보세요 🌱"
+    }</div>
+  </div>
+
+  <div class="card">
     <div class="card__title" style="margin-bottom:12px">뱃지</div>
     <div class="badges">
       ${g.badges.map((b) => `
@@ -244,7 +258,32 @@ export function insightsView(c) {
     ${heatmap(c)}
   </div>
 
+  ${simulatorCard(c)}
+
   ${reportCard(c, diff)}`;
+}
+
+// 미래 시뮬레이터 (월 지출 ±% → 연말 예상 잔액)
+function simulatorCard(c) {
+  const base = c.saved + c.monthsLeft * (c.avgMonthlyIncome - c.avgMonthlyExpense);
+  if (c.avgMonthlyExpense <= 0 && c.avgMonthlyIncome <= 0) {
+    return `<div class="card"><div class="card__title" style="margin-bottom:6px">미래 시뮬레이터</div>
+      <div class="muted" style="font-size:.84rem">기록이 쌓이면 "월 지출을 줄이면 연말에 얼마?"를 시뮬레이션해줄게요.</div></div>`;
+  }
+  return `<div class="card">
+    <div class="card__title" style="margin-bottom:4px">미래 시뮬레이터</div>
+    <div class="muted" style="font-size:.78rem;margin-bottom:10px">
+      월 평균: 수입 ${wonShort(c.avgMonthlyIncome)} · 지출 ${wonShort(c.avgMonthlyExpense)} · 올해 ${c.monthsLeft}개월 남음
+    </div>
+    <div class="sim-row"><span>월 지출</span><b id="sim-pct">0%</b></div>
+    <input type="range" id="sim-range" class="sim-range" min="-50" max="50" step="5" value="0"
+      data-saved="${Math.round(c.saved)}" data-inc="${Math.round(c.avgMonthlyIncome)}"
+      data-exp="${Math.round(c.avgMonthlyExpense)}" data-left="${c.monthsLeft}" data-goal="${c.goal}" />
+    <div class="sim-out">
+      <div class="stat"><div class="stat__v" id="sim-result">${wonShort(base)}</div><div class="stat__l">연말 예상 잔액</div></div>
+      <div class="stat"><div class="stat__v" id="sim-vs">${c.goal > 0 ? (base >= c.goal ? "목표 달성 ✅" : wonShort(c.goal - base) + " 부족") : "-"}</div><div class="stat__l">목표 대비</div></div>
+    </div>
+  </div>`;
 }
 
 function heatmap(c) {
@@ -335,6 +374,7 @@ export function addSheet({ type = "expense", planned = false, edit = null } = {}
     <label>금액</label>
     <input class="input amount" id="f-amount" inputmode="numeric" placeholder="0"
       value="${t.amount ? Number(t.amount).toLocaleString("ko-KR") : ""}" />
+    <div id="f-convert" class="convert"></div>
   </div>
   <div class="field">
     <label>분류</label>

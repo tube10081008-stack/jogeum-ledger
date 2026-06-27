@@ -4,6 +4,7 @@ import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, rese
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring } from "./storage.js";
 import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet } from "./views.js";
 import * as sync from "./sync.js";
+import { won, wonShort } from "./format.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const viewEl = $("#view");
@@ -47,12 +48,14 @@ function openAdd(opts = {}) {
 }
 
 function wireAdd(opts) {
-  // 금액 천단위 콤마
+  // 금액 천단위 콤마 + 환산 동기부여
   const amt = $("#f-amount", panelEl);
   amt?.addEventListener("input", () => {
     const n = numFrom(amt.value);
     amt.value = n ? n.toLocaleString("ko-KR") : "";
+    updateConvert();
   });
+  updateConvert();
 
   // 수입/지출 토글 → 현재 입력 보존하며 재렌더
   panelEl.querySelectorAll("#seg-type button").forEach((b) =>
@@ -80,6 +83,24 @@ function wireAdd(opts) {
   $("#f-del", panelEl)?.addEventListener("click", () => {
     if (opts.edit?.id) { removeTxn(opts.edit.id); toast("삭제했어요"); closeSheet(); render(); }
   });
+}
+
+// 지출 입력 시 "라떼 N잔 / 목표 N일 늦어짐" 환산 표시
+function updateConvert() {
+  const el = $("#f-convert", panelEl);
+  if (!el) return;
+  const type = panelEl.querySelector("#seg-type .on")?.dataset.type;
+  const amt = numFrom($("#f-amount", panelEl)?.value);
+  if (type !== "expense" || amt <= 0) { el.textContent = ""; return; }
+  const c = compute();
+  const parts = [];
+  const lattes = Math.round(amt / 5000);
+  if (lattes >= 1) parts.push(`☕ 라떼 ${lattes}잔`);
+  if (c.goal > 0) {
+    const days = amt / (c.goal / 365);
+    if (days >= 0.5) parts.push(`🎯 목표 ${days >= 10 ? Math.round(days) : days.toFixed(1)}일 늦어져요`);
+  }
+  el.innerHTML = parts.join("　·　");
 }
 
 function collectAdd(opts) {
@@ -306,6 +327,18 @@ $("#nav").addEventListener("click", (e) => {
 $("#fab").addEventListener("click", () => openAdd({ type: "expense" }));
 
 sheetEl.addEventListener("click", (e) => { if (e.target.dataset.close !== undefined) closeSheet(); });
+
+// 미래 시뮬레이터 슬라이더
+viewEl.addEventListener("input", (e) => {
+  const r = e.target.closest("#sim-range");
+  if (!r) return;
+  const pct = +r.value;
+  const saved = +r.dataset.saved, inc = +r.dataset.inc, exp = +r.dataset.exp, left = +r.dataset.left, goal = +r.dataset.goal;
+  const adj = saved + left * (inc - exp * (1 + pct / 100));
+  $("#sim-pct").textContent = (pct > 0 ? "+" : "") + pct + "%";
+  $("#sim-result").textContent = wonShort(adj);
+  $("#sim-vs").textContent = goal > 0 ? (adj >= goal ? "목표 달성 ✅" : wonShort(goal - adj) + " 부족") : "-";
+});
 
 viewEl.addEventListener("click", (e) => {
   const edit = e.target.closest("[data-edit]");
