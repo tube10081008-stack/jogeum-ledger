@@ -1,6 +1,6 @@
 // 앱 오케스트레이터 — 라우팅 / 렌더 / 이벤트 / PWA 등록
 import { compute } from "./state.js";
-import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll } from "./storage.js";
+import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot } from "./storage.js";
 import { homeView, historyView, plannedView, questView, addSheet, settingsSheet } from "./views.js";
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -135,6 +135,47 @@ function openSettings({ onboarding = false } = {}) {
     if (confirm("모든 데이터를 삭제할까요? 되돌릴 수 없어요.")) {
       resetAll(); toast("초기화했어요"); closeSheet(); render();
     }
+  });
+
+  // 마스코트 이미지 업로드/삭제 (기기 로컬에만 저장)
+  panelEl.querySelectorAll("[data-msup]").forEach((inp) =>
+    inp.addEventListener("change", async () => {
+      const f = inp.files[0];
+      if (!f) return;
+      try {
+        const dataURL = await compressImage(f, 200);
+        setMascot(inp.dataset.msup, dataURL);
+        toast("마스코트를 바꿨어요 🦕");
+        openSettings(); render();
+      } catch { toast("이미지를 불러오지 못했어요"); }
+    }));
+  panelEl.querySelectorAll("[data-msdel]").forEach((b) =>
+    b.addEventListener("click", () => {
+      clearMascot(b.dataset.msdel);
+      toast("기본 캐릭터로 되돌렸어요");
+      openSettings(); render();
+    }));
+}
+
+// 이미지를 정사각형 캔버스로 축소 → 데이터URL (localStorage 절약)
+function compressImage(file, max = 200) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const s = Math.min(max / img.width, max / img.height, 1);
+        const w = Math.round(img.width * s), h = Math.round(img.height * s);
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(cv.toDataURL("image/png"));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 

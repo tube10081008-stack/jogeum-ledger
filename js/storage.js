@@ -43,8 +43,14 @@ export function load() {
   }
   cache.settings = Object.assign(blank().settings, cache.settings);
   cache.txns = Array.isArray(cache.txns) ? cache.txns : [];
+  cache.mascot = cache.mascot && typeof cache.mascot === "object" ? cache.mascot : {};
   return cache;
 }
+
+// 마스코트 커스텀 이미지(기분별) — 사용자가 올린 이미지는 이 기기에만 저장됨
+export function getMascot() { return load().mascot; }
+export function setMascot(mood, dataURL) { load(); cache.mascot[mood] = dataURL; save(); }
+export function clearMascot(mood) { load(); delete cache.mascot[mood]; save(); }
 
 export function save() {
   localStorage.setItem(KEY, JSON.stringify(cache));
@@ -80,6 +86,7 @@ export function importJSON(text) {
   if (!data || !Array.isArray(data.txns)) throw new Error("형식이 올바르지 않습니다");
   cache = data;
   cache.settings = Object.assign(blank().settings, cache.settings);
+  cache.mascot = cache.mascot && typeof cache.mascot === "object" ? cache.mascot : {};
   save();
 }
 export function resetAll() {

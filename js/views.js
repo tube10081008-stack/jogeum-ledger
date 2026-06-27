@@ -1,7 +1,8 @@
 // 화면 렌더링 (HTML 문자열 생성 — 이벤트는 app.js가 위임 처리)
 import { won, wonShort, fmtDayLabel, fmtDate, esc, todayISO } from "./format.js";
 import { CATEGORIES, catOf } from "./storage.js";
-import { mascotSVG, mascotState } from "./mascot.js";
+import { mascot, mascotSVG, mascotState, MOODS } from "./mascot.js";
+import { getMascot } from "./storage.js";
 import { gameStats } from "./gamification.js";
 
 /* ---------- 홈 ---------- */
@@ -15,7 +16,7 @@ export function homeView(c) {
 
   return `
   <div class="mascot-wrap">
-    ${mascotSVG(m.mood, 130)}
+    ${mascot(m.mood, 130)}
     <div class="mascot-bubble">${esc(m.msg)}</div>
   </div>
 
@@ -101,7 +102,7 @@ export function questView(c) {
   const g = gameStats(c);
   return `
   <h1 class="screen-title">도전</h1>
-  <div class="mascot-wrap">${mascotSVG(g.level >= 5 ? "celebrate" : "happy", 110)}</div>
+  <div class="mascot-wrap">${mascot(g.level >= 5 ? "celebrate" : "happy", 110)}</div>
   <div class="card level">
     <div class="level__badge">Lv.${g.level}</div>
     <div class="level__info">
@@ -158,7 +159,7 @@ function txRow(t) {
 }
 
 function emptyBox(html) {
-  return `<div class="empty">${mascotSVG("sleepy", 96)}<p>${html}</p></div>`;
+  return `<div class="empty">${mascot("sleepy", 96)}<p>${html}</p></div>`;
 }
 
 /* ---------- 바텀시트: 입력 ---------- */
@@ -200,7 +201,7 @@ export function addSheet({ type = "expense", planned = false, edit = null } = {}
 export function settingsSheet(c, { onboarding = false } = {}) {
   return `
   <div class="sheet__title">${onboarding ? "환영해요! 목표를 정해요 🌱" : "설정"}</div>
-  ${onboarding ? `<div class="center" style="margin-bottom:8px">${mascotSVG("happy", 96)}</div>` : ""}
+  ${onboarding ? `<div class="center" style="margin-bottom:8px">${mascot("happy", 96)}</div>` : ""}
   <div class="field">
     <label>올해(${c.year}) 저축 목표</label>
     <input class="input amount" id="s-goal" inputmode="numeric" placeholder="0"
@@ -213,6 +214,25 @@ export function settingsSheet(c, { onboarding = false } = {}) {
   </div>
   <button class="btn primary" id="s-save">${onboarding ? "시작하기" : "저장"}</button>
   ${onboarding ? "" : `
+    <hr class="soft"/>
+    <div class="card__title" style="margin-bottom:4px">마스코트 꾸미기</div>
+    <div class="muted" style="font-size:.76rem;margin-bottom:10px">
+      기분별 이미지를 올리면 그 캐릭터로 바뀌어요. 올린 이미지는 <b>이 기기에만</b> 저장되고
+      저장소·공개 주소엔 올라가지 않아요. (안 올린 칸은 기본 캐릭터)
+    </div>
+    <div class="mascot-grid">
+      ${MOODS.map((mo) => {
+        const cur = getMascot()[mo.id];
+        return `<div class="ms-slot">
+          <div class="ms-pre">${cur
+            ? `<img src="${cur}" alt="" /><button class="ms-x" data-msdel="${mo.id}">✕</button>`
+            : mascotSVG(mo.id, 56)}</div>
+          <label class="ms-up">${mo.label}
+            <input type="file" accept="image/*" data-msup="${mo.id}" hidden />
+          </label>
+        </div>`;
+      }).join("")}
+    </div>
     <hr class="soft"/>
     <div class="card__title" style="margin-bottom:8px">데이터 (1인용 · 기기에만 저장)</div>
     <div class="row">

@@ -1,6 +1,26 @@
 // 마스코트 "조구미" — 오리지널 아기공룡 (조구만 분위기, 저작권 회피용 자체 제작)
 // mood: celebrate | happy | neutral | worried | sad | sleepy
-// 정식 조구만 에셋이 있으면 이 SVG를 이미지로 교체하면 됨.
+// 사용자가 기분별 커스텀 이미지를 올리면(기기 로컬 저장) 그 이미지를 우선 표시.
+import { getMascot } from "./storage.js";
+
+export const MOODS = [
+  { id: "happy", label: "기쁨 😊" },
+  { id: "celebrate", label: "축하 🎉" },
+  { id: "neutral", label: "보통 🙂" },
+  { id: "worried", label: "걱정 🤔" },
+  { id: "sad", label: "슬픔 😢" },
+  { id: "sleepy", label: "졸림 😴" },
+];
+
+// 화면 표시용: 커스텀 이미지가 있으면 <img>, 없으면 기본 SVG
+export function mascot(mood = "neutral", size = 140) {
+  const custom = getMascot()[mood];
+  if (custom) {
+    return `<img class="mascot" src="${custom}" width="${size}" height="${size}"
+      alt="마스코트" style="object-fit:contain;border-radius:18px" />`;
+  }
+  return mascotSVG(mood, size);
+}
 
 export function mascotSVG(mood = "neutral", size = 140) {
   const eyes = {
