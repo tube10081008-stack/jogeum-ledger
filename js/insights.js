@@ -75,3 +75,40 @@ export function donutSVG(slices, size = 160) {
 
 export const PALETTE = ["#7ed6a7", "#54b487", "#f4c152", "#f0a35a", "#e26d6d",
   "#9ad4f0", "#b39ddb", "#a3b18a"];
+
+// 9) 몬테카를로: 월수입/지출의 변동성을 반영해 연말 잔액 분포·목표 달성 확률 추정
+export function monteCarlo(actual, { saved, monthsLeft, goal }, monthKeyFn, runs = 3000) {
+  // 월별 수입/지출 집계
+  const m = {};
+  for (const t of actual) {
+    const k = monthKeyFn(t.date);
+    (m[k] = m[k] || { inc: 0, exp: 0 })[t.type === "income" ? "inc" : "exp"] += t.amount;
+  }
+  const incs = Object.values(m).map((x) => x.inc);
+  const exps = Object.values(m).map((x) => x.exp);
+  if (incs.length < 1 || monthsLeft <= 0) return null;
+  const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+  const std = (a, mu) => a.length < 2 ? mu * 0.15 : Math.sqrt(a.reduce((s, v) => s + (v - mu) ** 2, 0) / (a.length - 1));
+  const mi = mean(incs), me = mean(exps);
+  const si = std(incs, mi), se = std(exps, me);
+  // 표준정규 (Box-Muller)
+  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+  const results = [];
+  let hit = 0;
+  for (let r = 0; r < runs; r++) {
+    let bal = saved;
+    for (let mo = 0; mo < monthsLeft; mo++) {
+      bal += Math.max(0, mi + gauss() * si) - Math.max(0, me + gauss() * se);
+    }
+    results.push(bal);
+    if (goal > 0 && bal >= goal) hit++;
+  }
+  results.sort((a, b) => a - b);
+  const q = (p) => results[Math.floor(p * (results.length - 1))];
+  return {
+    prob: goal > 0 ? hit / runs : null,
+    p10: q(0.1), p50: q(0.5), p90: q(0.9),
+    mean: mean(results), monthsLeft,
+  };
+}

@@ -4,9 +4,10 @@ import { CATEGORIES, catOf } from "./storage.js";
 import { mascot, mascotSVG, mascotState, MOODS } from "./mascot.js";
 import { getMascot } from "./storage.js";
 import { info as syncInfo } from "./sync.js";
+import { info as aiInfo } from "./ai.js";
 import { gameStats } from "./gamification.js";
-import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE } from "./insights.js";
-import { parseISO } from "./format.js";
+import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo } from "./insights.js";
+import { parseISO, monthKey } from "./format.js";
 
 /* ---------- 홈 ---------- */
 export function homeView(c) {
@@ -21,6 +22,7 @@ export function homeView(c) {
   <div class="mascot-wrap">
     ${mascot(m.mood, 130)}
     <div class="mascot-bubble">${esc(m.msg)}</div>
+    ${aiInfo().key ? `<button class="btn ghost" id="home-coach" style="width:auto;padding:9px 16px;margin-top:4px">🤖 조구미 코치에게 물어보기</button>` : ""}
   </div>
 
   <div class="card center">
@@ -260,7 +262,33 @@ export function insightsView(c) {
 
   ${simulatorCard(c)}
 
+  ${monteCarloCard(c)}
+
   ${reportCard(c, diff)}`;
+}
+
+// 9) 몬테카를로 목표 달성 확률 (순수 연산)
+function monteCarloCard(c) {
+  const mc = monteCarlo(c.actual, { saved: c.saved, monthsLeft: c.monthsLeft, goal: c.goal }, monthKey);
+  if (!mc) {
+    return `<div class="card"><div class="card__title" style="margin-bottom:6px">🎲 목표 달성 확률</div>
+      <div class="muted" style="font-size:.84rem">기록이 한 달 이상 쌓이면 변동성을 반영해 달성 확률을 계산해줄게요.</div></div>`;
+  }
+  const prob = mc.prob == null ? null : Math.round(mc.prob * 100);
+  const color = prob == null ? "var(--ink)" : prob >= 70 ? "var(--income)" : prob >= 40 ? "var(--gold)" : "var(--expense)";
+  return `<div class="card">
+    <div class="card__head"><span class="card__title">🎲 목표 달성 확률</span>
+      <span class="muted" style="font-size:.72rem">몬테카를로 3,000회</span></div>
+    ${prob == null ? `<div class="muted" style="font-size:.84rem">목표를 설정하면 달성 확률이 나와요.</div>` : `
+      <div class="center" style="font-size:2.2rem;font-weight:800;color:${color};margin:2px 0 6px">${prob}%</div>
+      <div class="muted center" style="font-size:.78rem">현재 추세·변동성 기준 올해 목표 달성 가능성</div>`}
+    <div class="grid3" style="margin-top:10px">
+      <div class="stat"><div class="stat__v">${wonShort(mc.p10)}</div><div class="stat__l">하위 10%</div></div>
+      <div class="stat"><div class="stat__v">${wonShort(mc.p50)}</div><div class="stat__l">중앙값</div></div>
+      <div class="stat"><div class="stat__v">${wonShort(mc.p90)}</div><div class="stat__l">상위 10%</div></div>
+    </div>
+    <div class="muted" style="font-size:.74rem;margin-top:8px">연말 예상 잔액 범위 (남은 ${mc.monthsLeft}개월 시뮬레이션)</div>
+  </div>`;
 }
 
 // 미래 시뮬레이터 (월 지출 ±% → 연말 예상 잔액)
@@ -364,8 +392,16 @@ function emptyBox(html) {
 export function addSheet({ type = "expense", planned = false, edit = null } = {}) {
   const t = edit || { type, planned, amount: "", category: "", memo: "", date: todayISO() };
   const cats = CATEGORIES[t.type];
+  const ai = aiInfo();
+  const aiBar = (!edit && ai.key && ai.model) ? `
+    <div class="ai-bar">
+      <button class="btn ghost" id="ai-nl">✨ 자연어로 입력</button>
+      <button class="btn ghost" id="ai-receipt">📷 영수증
+        <input type="file" accept="image/*" id="ai-receipt-file" hidden /></button>
+    </div>` : "";
   return `
   <div class="sheet__title">${edit ? "기록 수정" : planned ? "예정 항목 추가" : "기록하기"}</div>
+  ${aiBar}
   <div class="seg" id="seg-type">
     <button data-type="expense" class="${t.type === "expense" ? "on exp" : ""}">지출</button>
     <button data-type="income" class="${t.type === "income" ? "on inc" : ""}">수입</button>
@@ -469,6 +505,81 @@ export function revisionsSheet(revs) {
   ${list}`;
 }
 
+/* ---------- AI(Gemini) 섹션 ---------- */
+function aiSection() {
+  const a = aiInfo();
+  if (a.key && a.model) {
+    return `
+      <div class="card__title" style="margin-bottom:4px">AI · Gemini ✨</div>
+      <div class="muted" style="font-size:.76rem;margin-bottom:8px">
+        연결됨 — 자연어 입력·영수증·코치·자동분류 사용 가능. 모델: <b>${esc(a.model)}</b>
+      </div>
+      <div class="field">
+        <label>모델 변경</label>
+        <select class="input" id="ai-model"><option>${esc(a.model)}</option></select>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="ai-reload">모델 목록 새로고침</button>
+        <button class="btn ghost" id="ai-off">AI 해제</button>
+      </div>`;
+  }
+  return `
+    <div class="card__title" style="margin-bottom:4px">AI · Gemini ✨ (선택)</div>
+    <div class="muted" style="font-size:.76rem;margin-bottom:10px">
+      Gemini 키를 넣으면 자연어 한 줄 입력·영수증 자동 기입·AI 코치·자동 분류를 쓸 수 있어요.
+      키는 <b>이 기기에만</b> 저장되고 비용은 본인 키로 청구돼요.
+    </div>
+    <ol class="muted" style="font-size:.76rem;margin:0 0 10px 18px;line-height:1.7">
+      <li><a class="link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>에서 API 키 발급</li>
+      <li>아래에 붙여넣고 <b>모델 불러오기</b> → 모델 선택 → 저장</li>
+    </ol>
+    <div class="field">
+      <input class="input" id="ai-key" type="password" placeholder="Gemini API 키 붙여넣기" autocomplete="off" />
+    </div>
+    <button class="btn ghost" id="ai-load">모델 불러오기</button>
+    <div id="ai-modelbox" hidden style="margin-top:12px">
+      <div class="field"><label>모델 선택 (현재 사용 가능)</label>
+        <select class="input" id="ai-model"></select></div>
+      <button class="btn primary" id="ai-save">AI 저장</button>
+    </div>`;
+}
+
+/* ---------- 바텀시트: AI 거래 리뷰 (자연어/영수증 공통) ---------- */
+export function aiReviewSheet(items) {
+  const rows = items.map((t, i) => {
+    const cat = catOf(t.type, t.category);
+    return `<div class="tx" data-airow="${i}">
+      <div class="tx__ico">${cat.icon}</div>
+      <div class="tx__body">
+        <div class="tx__cat">${esc(cat.label)} <span class="muted" style="font-size:.74rem">${t.date}</span></div>
+        <div class="tx__memo">${esc(t.memo || "")}</div>
+      </div>
+      <div class="tx__amt ${t.type === "income" ? "pos" : "neg"}">${t.type === "income" ? "+" : "-"}${won(t.amount)}</div>
+      <button class="recur-x" data-airm="${i}">✕</button>
+    </div>`;
+  }).join("");
+  return `
+  <div class="sheet__title">AI가 찾은 거래 ${items.length}건</div>
+  <div class="muted" style="font-size:.78rem;margin-bottom:10px">맞는지 확인하고 저장해요. 틀린 항목은 ✕로 빼면 돼요.</div>
+  ${rows || `<div class="empty">${mascot("worried", 80)}<p>인식된 거래가 없어요. 다시 시도해볼까요?</p></div>`}
+  ${items.length ? `<button class="btn primary" id="ai-commit" style="margin-top:8px">${items.length}건 모두 저장</button>` : ""}`;
+}
+
+/* ---------- 바텀시트: AI 코치 채팅 ---------- */
+export function coachSheet(history) {
+  const msgs = history.length
+    ? history.map((h) => `<div class="chat ${h.role === "user" ? "chat--me" : "chat--ai"}">${esc(h.text)}</div>`).join("")
+    : `<div class="center" style="padding:10px 0">${mascot("happy", 90)}
+        <div class="muted" style="font-size:.85rem">무엇이든 물어보세요!<br>"이번 달 어땠어?", "여행 가도 될까?", "어디서 아껴야 해?"</div></div>`;
+  return `
+  <div class="sheet__title">🤖 조구미 코치</div>
+  <div id="chat-log" class="chat-log">${msgs}</div>
+  <div class="row" style="gap:8px">
+    <input class="input" id="chat-input" placeholder="메시지 입력…" style="flex:1" />
+    <button class="btn primary" id="chat-send" style="width:auto;padding:14px 18px">보내기</button>
+  </div>`;
+}
+
 /* ---------- 클라우드 백업(GitHub Gist) 섹션 ---------- */
 function cloudSection() {
   const s = syncInfo();
@@ -553,6 +664,8 @@ export function settingsSheet(c, { onboarding = false } = {}) {
         </div>`;
       }).join("")}
     </div>
+    <hr class="soft"/>
+    ${aiSection()}
     <hr class="soft"/>
     ${cloudSection()}
     <hr class="soft"/>

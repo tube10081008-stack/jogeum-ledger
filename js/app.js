@@ -2,9 +2,12 @@
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring } from "./storage.js";
-import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet } from "./views.js";
+import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet } from "./views.js";
 import * as sync from "./sync.js";
+import * as ai from "./ai.js";
 import { won, wonShort } from "./format.js";
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const $ = (s, r = document) => r.querySelector(s);
 const viewEl = $("#view");
@@ -82,6 +85,42 @@ function wireAdd(opts) {
 
   $("#f-del", panelEl)?.addEventListener("click", () => {
     if (opts.edit?.id) { removeTxn(opts.edit.id); toast("삭제했어요"); closeSheet(); render(); }
+  });
+
+  // ✨ 자연어 입력
+  $("#ai-nl", panelEl)?.addEventListener("click", openAINatural);
+  // 📷 영수증
+  const rf = $("#ai-receipt-file", panelEl);
+  $("#ai-receipt", panelEl)?.addEventListener("click", (e) => { if (e.target !== rf) rf?.click(); });
+  rf?.addEventListener("change", async () => {
+    const f = rf.files[0]; if (!f) return;
+    toast("영수증 분석 중… ✨");
+    try {
+      const dataURL = await compressImage(f, 1000);
+      const base = dataURL.split(",")[1];
+      const items = await ai.extractReceipt({ mime: "image/png", data: base }, todayStr());
+      openAIReview(items);
+    } catch (e) { toast("영수증 분석 실패: " + e.message); }
+  });
+
+  // 5) 스마트 자동 분류 — 메모 입력 후 분류 미선택이면 추천
+  let clsTimer;
+  $("#f-memo", panelEl)?.addEventListener("input", () => {
+    if (!ai.isReady()) return;
+    clearTimeout(clsTimer);
+    clsTimer = setTimeout(async () => {
+      const memo = $("#f-memo", panelEl)?.value.trim();
+      if (memo.length < 2) return;
+      if (panelEl.querySelector("#f-cats .chip.on")) return;  // 이미 선택했으면 패스
+      const type = panelEl.querySelector("#seg-type .on")?.dataset.type || "expense";
+      try {
+        const cat = await ai.classify(memo, type);
+        if (cat && !panelEl.querySelector("#f-cats .chip.on")) {
+          const chip = panelEl.querySelector(`#f-cats .chip[data-cat="${cat}"]`);
+          if (chip) { chip.classList.add("on"); chip.insertAdjacentHTML("beforeend", " ✨"); }
+        }
+      } catch {}
+    }, 700);
   });
 }
 
@@ -210,6 +249,39 @@ function openSettings({ onboarding = false } = {}) {
     }
   });
   $("#sync-restore", panelEl)?.addEventListener("click", () => openRevisions());
+
+  // AI(Gemini) 설정
+  const fillModels = async (key) => {
+    const sel = $("#ai-model", panelEl);
+    try {
+      const models = await ai.listModels(key);
+      if (!models.length) return toast("사용 가능한 모델이 없어요");
+      sel.innerHTML = models.map((m) => `<option value="${m.id}">${m.label} (${m.id})</option>`).join("");
+      // 추천 기본값: flash 계열 우선
+      const pref = models.find((m) => /flash/.test(m.id)) || models[0];
+      sel.value = (ai.info().model && models.some((m) => m.id === ai.info().model)) ? ai.info().model : pref.id;
+      return true;
+    } catch (e) { toast(e.message); return false; }
+  };
+  $("#ai-load", panelEl)?.addEventListener("click", async () => {
+    const key = $("#ai-key", panelEl)?.value.trim();
+    if (!key) return toast("Gemini 키를 붙여넣어 주세요");
+    toast("모델 불러오는 중…");
+    ai.setKey(key);
+    if (await fillModels(key)) { $("#ai-modelbox", panelEl).hidden = false; toast("모델을 선택해 저장하세요"); }
+  });
+  $("#ai-save", panelEl)?.addEventListener("click", () => {
+    const model = $("#ai-model", panelEl)?.value;
+    if (!model) return toast("모델을 선택해주세요");
+    ai.setModel(model); toast("AI 연결 완료 ✨"); openSettings(); render();
+  });
+  $("#ai-reload", panelEl)?.addEventListener("click", async () => { toast("새로고침 중…"); await fillModels(); toast("목록 갱신됨 — 선택 후 변경"); });
+  $("#ai-model", panelEl)?.addEventListener("change", () => {
+    if (ai.info().key && ai.info().model) { ai.setModel($("#ai-model", panelEl).value); toast("모델을 바꿨어요"); }
+  });
+  $("#ai-off", panelEl)?.addEventListener("click", () => {
+    if (confirm("AI 연결을 해제할까요? (키 삭제)")) { ai.disconnect(); toast("AI를 해제했어요"); openSettings(); render(); }
+  });
   updateSyncBadge();
 
   // 마스코트 이미지 업로드/삭제 (기기 로컬에만 저장)
@@ -268,6 +340,64 @@ function openJar(jar) {
   $("#j-del", panelEl)?.addEventListener("click", () => {
     if (confirm("이 저금통을 삭제할까요?")) { removeJar(jar.id); toast("삭제했어요"); closeSheet(); render(); }
   });
+}
+
+/* ---------- ✨ 자연어 입력 ---------- */
+function openAINatural() {
+  openSheet(`
+    <div class="sheet__title">✨ 자연어로 입력</div>
+    <div class="muted" style="font-size:.8rem;margin-bottom:10px">하루치를 한 번에 적어보세요. 예) "점심 김밥 9천, 카페 4500, 어제 택시 12000"</div>
+    <textarea class="input" id="nl-text" rows="4" placeholder="여기에 자유롭게…"></textarea>
+    <button class="btn primary" id="nl-go" style="margin-top:12px">AI로 분석</button>`);
+  $("#nl-go", panelEl)?.addEventListener("click", async () => {
+    const text = $("#nl-text", panelEl)?.value.trim();
+    if (!text) return toast("내용을 입력해주세요");
+    toast("AI가 분석 중… ✨");
+    try { openAIReview(await ai.parseTransactions(text, todayStr())); }
+    catch (e) { toast("분석 실패: " + e.message); }
+  });
+}
+
+// 자연어/영수증 공통: AI가 뽑은 거래 검토 후 일괄 저장
+function openAIReview(items) {
+  let list = items.slice();
+  const renderReview = () => {
+    openSheet(aiReviewSheet(list));
+    panelEl.querySelectorAll("[data-airm]").forEach((b) =>
+      b.addEventListener("click", () => { list.splice(+b.dataset.airm, 1); renderReview(); }));
+    $("#ai-commit", panelEl)?.addEventListener("click", () => {
+      list.forEach((t) => addTxn(t));
+      toast(`${list.length}건 저장 완료! ✨`); closeSheet(); render();
+    });
+  };
+  renderReview();
+}
+
+/* ---------- 🤖 AI 코치 ---------- */
+let coachHistory = [];
+function openCoach() {
+  const renderCoach = (busy) => {
+    openSheet(coachSheet(coachHistory));
+    const log = $("#chat-log", panelEl);
+    if (log) log.scrollTop = log.scrollHeight;
+    const send = async () => {
+      const inp = $("#chat-input", panelEl);
+      const text = inp?.value.trim();
+      if (!text || busy) return;
+      coachHistory.push({ role: "user", text });
+      renderCoach(true);
+      $("#chat-log", panelEl).insertAdjacentHTML("beforeend", `<div class="chat chat--ai chat--typing">조구미가 생각 중… 🦕</div>`);
+      $("#chat-log", panelEl).scrollTop = 1e9;
+      try {
+        const reply = await ai.coach(coachHistory, compute());
+        coachHistory.push({ role: "model", text: reply });
+      } catch (e) { coachHistory.push({ role: "model", text: "앗, 오류가 났어요: " + e.message }); }
+      renderCoach(false);
+    };
+    $("#chat-send", panelEl)?.addEventListener("click", send);
+    $("#chat-input", panelEl)?.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  };
+  renderCoach(false);
 }
 
 /* ---------- 이전 백업 복원 시트 ---------- */
@@ -397,6 +527,8 @@ viewEl.addEventListener("click", (e) => {
     if (j) openJar(j);
     return;
   }
+
+  if (e.target.closest("#home-coach")) return openCoach();
 
   const act = e.target.closest("[data-act]")?.dataset.act;
   if (act === "settings") return openSettings();
