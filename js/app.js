@@ -2,7 +2,7 @@
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring } from "./storage.js";
-import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet } from "./views.js";
+import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet } from "./views.js";
 import * as sync from "./sync.js";
 import { won, wonShort } from "./format.js";
 
@@ -182,8 +182,20 @@ function openSettings({ onboarding = false } = {}) {
     if (!token.trim()) return toast("토큰을 붙여넣어 주세요");
     toast("연결 중…");
     try {
-      await sync.connect(token);
-      toast("연결됐어요 ☁️ 자동 백업 시작!");
+      const res = await sync.connect(token);
+      if (res.action === "conflict") {
+        // 빈 데이터로 클라우드를 덮어쓰지 않도록 사용자에게 선택
+        const useRemote = confirm(
+          `클라우드에 ${res.remoteCount}건, 이 기기에 ${res.localCount}건의 기록이 있어요.\n\n` +
+          `[확인] 클라우드 데이터를 불러오기 (이 기기 내용은 대체됨)\n` +
+          `[취소] 이 기기 데이터로 클라우드를 덮어쓰기`);
+        await sync.resolveConflict(useRemote ? "remote" : "local");
+        toast(useRemote ? "클라우드에서 불러왔어요 ☁️" : "이 기기 데이터로 저장했어요");
+      } else if (res.action === "pulled") {
+        toast(`클라우드에서 ${res.count}건 복원했어요 ☁️`);
+      } else {
+        toast("연결됐어요 ☁️ 자동 백업 시작!");
+      }
       openSettings(); render();
     } catch (e) { toast("연결 실패: " + e.message); }
   });
@@ -197,6 +209,7 @@ function openSettings({ onboarding = false } = {}) {
       sync.disconnect(); toast("연결을 해제했어요"); openSettings();
     }
   });
+  $("#sync-restore", panelEl)?.addEventListener("click", () => openRevisions());
   updateSyncBadge();
 
   // 마스코트 이미지 업로드/삭제 (기기 로컬에만 저장)
@@ -255,6 +268,26 @@ function openJar(jar) {
   $("#j-del", panelEl)?.addEventListener("click", () => {
     if (confirm("이 저금통을 삭제할까요?")) { removeJar(jar.id); toast("삭제했어요"); closeSheet(); render(); }
   });
+}
+
+/* ---------- 이전 백업 복원 시트 ---------- */
+async function openRevisions() {
+  openSheet(`<div class="sheet__title">이전 백업 불러오는 중…</div>
+    <div class="muted center" style="padding:20px">Gist 이력을 확인하고 있어요 ☁️</div>`);
+  let revs = [];
+  try { revs = await sync.getRevisions(20); }
+  catch (e) { toast("불러오기 실패: " + e.message); closeSheet(); return; }
+  // 같은 건수 연속은 1개만(중복 줄이기), 데이터 있는 것 우선
+  openSheet(revisionsSheet(revs));
+  panelEl.querySelectorAll("[data-rev]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const r = revs[+b.dataset.rev];
+      if (!r || !r.data) return toast("이 버전은 비어 있어요");
+      if (!confirm(`${new Date(r.date).toLocaleString("ko-KR")} 시점(기록 ${r.txns}건)으로 복원할까요?`)) return;
+      toast("복원 중…");
+      try { await sync.restoreRevision(r.data); toast(`복원 완료! ${r.txns}건 ☁️`); closeSheet(); render(); }
+      catch (e) { toast("복원 실패: " + e.message); }
+    }));
 }
 
 /* ---------- 반복 거래 시트 ---------- */

@@ -450,6 +450,25 @@ export function recurringSheet() {
   <div class="muted" style="font-size:.76rem;margin-top:8px">추가하면 지난 달부터 오늘까지 해당 날짜에 자동 기록돼요.</div>`;
 }
 
+/* ---------- 바텀시트: 이전 백업 복원 ---------- */
+export function revisionsSheet(revs) {
+  const list = revs.length
+    ? revs.map((r, i) => `
+      <button class="rev" data-rev="${i}">
+        <div><b>${new Date(r.date).toLocaleString("ko-KR")}</b>
+          <div class="muted" style="font-size:.78rem">기록 ${r.txns}건</div></div>
+        <span class="link">이걸로 복원 ▶</span>
+      </button>`).join("")
+    : `<div class="muted center" style="padding:20px">불러올 이전 백업이 없어요.</div>`;
+  return `
+  <div class="sheet__title">이전 백업에서 복원</div>
+  <div class="muted" style="font-size:.8rem;margin-bottom:12px">
+    Gist에 저장된 과거 버전이에요. 기록 건수를 보고 살리고 싶은 시점을 골라줘요.
+    선택하면 그 버전으로 되돌리고 클라우드에도 다시 저장돼요.
+  </div>
+  ${list}`;
+}
+
 /* ---------- 클라우드 백업(GitHub Gist) 섹션 ---------- */
 function cloudSection() {
   const s = syncInfo();
@@ -463,7 +482,8 @@ function cloudSection() {
       <div class="row">
         <button class="btn ghost" id="sync-now">지금 동기화</button>
         <button class="btn ghost" id="sync-off">연결 해제</button>
-      </div>`;
+      </div>
+      <button class="btn ghost" id="sync-restore" style="margin-top:10px">⏪ 이전 백업에서 복원</button>`;
   }
   return `
     <div class="card__title" style="margin-bottom:4px">클라우드 백업 · GitHub (선택)</div>

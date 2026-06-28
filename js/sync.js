@@ -71,7 +71,8 @@ async function pushNow() {
   cfg.lastSync = Date.now(); saveCfg();
 }
 
-// 토큰으로 최초 연결: 검증 → 기존 Gist 탐색 → 1회 동기화
+// 토큰으로 최초 연결 (안전): 빈 로컬이 채워진 원격을 덮어쓰지 않음.
+// 양쪽 다 데이터가 있으면 사용자에게 선택을 넘김(conflict).
 export async function connect(token) {
   cfg = { token: token.trim() };
   saveCfg();
@@ -79,10 +80,66 @@ export async function connect(token) {
   try {
     cfg.gistId = await findExistingGist();
     saveCfg();
-    await syncNow();          // 양쪽 비교해 최신 채택
+    const remote = cfg.gistId ? await remoteData() : null;
+    const rCount = remote && Array.isArray(remote.txns) ? remote.txns.length : 0;
+    const lCount = Array.isArray(load().txns) ? load().txns.length : 0;
     wire();
-    return true;
+    if (rCount > 0 && lCount === 0) {                 // 원격에만 데이터 → 복원
+      applyRemote(remote); cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
+      return { action: "pulled", count: rCount };
+    }
+    if (rCount > 0 && lCount > 0) {                   // 양쪽 데이터 → 사용자 선택
+      setStatus("idle");
+      return { action: "conflict", remoteCount: rCount, localCount: lCount };
+    }
+    await pushNow();                                  // 원격 없음/빈 → 로컬 올림
+    setStatus("idle");
+    return { action: "pushed", count: lCount };
   } catch (e) { setStatus("error"); throw e; }
+}
+
+// 충돌 시 사용자 선택 적용: 'remote'=클라우드 불러오기, 'local'=이 기기로 덮어쓰기
+export async function resolveConflict(choice) {
+  setStatus("syncing");
+  try {
+    if (choice === "remote") {
+      const remote = await remoteData();
+      if (remote) applyRemote(remote);
+    } else {
+      await pushNow();
+    }
+    cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
+  } catch (e) { setStatus("error"); throw e; }
+}
+
+// Gist 수정 이력에서 과거 백업들을 가져옴 (복구용)
+export async function getRevisions(limit = 20) {
+  const c = getCfg();
+  if (!c.gistId) return [];
+  const g = await gh("/gists/" + c.gistId);
+  const hist = (g.history || []).slice(0, limit);
+  const out = [];
+  for (const h of hist) {
+    try {
+      const rev = await gh("/gists/" + c.gistId + "/" + h.version);
+      const f = rev.files && rev.files[FILE];
+      let content = f ? f.content : null;
+      if (f && f.truncated && f.raw_url) content = await (await fetch(f.raw_url)).text();
+      let data = null; try { data = JSON.parse(content); } catch {}
+      out.push({
+        version: h.version, date: h.committed_at,
+        txns: data && Array.isArray(data.txns) ? data.txns.length : 0, data,
+      });
+    } catch {}
+  }
+  return out;
+}
+
+// 선택한 과거 백업으로 되돌리고 즉시 다시 올림
+export async function restoreRevision(data) {
+  applyRemote(data);
+  await pushNow();
+  cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
 }
 
 export function disconnect() {

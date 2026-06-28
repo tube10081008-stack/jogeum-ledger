@@ -206,6 +206,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .report{display:flex;gap:10px;align-items:center}
 .report .mascot{flex:none;animation:none}
 
+/* 이전 백업 복원 목록 */
+.rev{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;
+  background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}
+.rev:active{transform:scale(.99)}
+
 /* 환산 동기부여 */
 .convert{font-size:.78rem;color:var(--expense);font-weight:600;margin-top:6px;min-height:1em;text-align:right}
 
