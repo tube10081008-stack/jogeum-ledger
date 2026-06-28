@@ -206,6 +206,9 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .report{display:flex;gap:10px;align-items:center}
 .report .mascot{flex:none;animation:none}
 
+/* 위시리스트 결정 버튼 */
+.wish-btn{width:auto;padding:7px 12px;font-size:.8rem;margin-left:6px;flex:none}
+
 /* AI 입력 바 */
 .ai-bar{display:flex;gap:8px;margin-bottom:14px}
 .ai-bar .btn{padding:11px;font-size:.85rem}

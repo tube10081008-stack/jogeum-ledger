@@ -138,4 +138,32 @@ export async function coach(history, c) {
   return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "(응답 없음)";
 }
 
+// 10) 충동구매 협상 — 조구미가 다정하게 재고하도록 유도
+export async function negotiate(pending, c, history) {
+  const cat = catOf("expense", pending.category);
+  const delayDays = c.goal > 0 ? Math.round(pending.amount / (c.goal / 365)) : 0;
+  const ctx = {
+    사려는것: pending.memo || cat.label, 금액: pending.amount, 분류: cat.label,
+    오늘쓸수있는돈: Math.round(c.todayAllowance), 목표진행률: Math.round(c.progress * 100) + "%",
+    이지출이면목표지연일: delayDays, 이번달지출: Math.round(c.mOut), 월예산: c.monthlyBudget,
+  };
+  const sys = `너는 '조구미'라는 다정한 아기공룡 코치야. 사용자가 충동적으로 큰 지출을 하려 해.
+강요하지 말고, 따뜻하게 공감하면서 '정말 지금 필요한지' 스스로 생각하게 도와줘.
+- 한국어, 2~4문장, 이모지 약간 🦕
+- 소크라테스식 질문 1개 + 가능하면 현실적 대안이나 '하루만 미뤄보기' 제안
+- 목표에 미치는 영향(예: 목표 ${delayDays}일 지연)을 부드럽게 언급
+- 마지막은 사용자가 스스로 결정하도록 열어둬. 사라/사지마라 단정하지 마.
+사용자 재정·구매 데이터(JSON): ${JSON.stringify(ctx)}`;
+  const c2 = getCfg();
+  const contents = (history.length ? history : [{ role: "user", text: `${pending.amount}원짜리 ${pending.memo || cat.label} 지금 사려고 해.` }])
+    .map((h) => ({ role: h.role, parts: [{ text: h.text }] }));
+  const res = await fetch(`${BASE}/models/${c2.model}:generateContent?key=${encodeURIComponent(c2.key)}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents, generationConfig: { temperature: 0.7 } }),
+  });
+  if (!res.ok) { let m = "AI 오류 " + res.status; try { m = (await res.json()).error?.message || m; } catch {} throw new Error(m); }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "(응답 없음)";
+}
+
 export { catOf };

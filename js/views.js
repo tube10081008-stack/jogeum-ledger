@@ -144,12 +144,38 @@ export function plannedView(c) {
   </div>
   <button class="btn ghost" data-act="add-planned" style="margin-bottom:14px">＋ 예정 항목 추가</button>
 
-  <div class="card__head"><span class="card__title">반복 거래</span>
+  <div class="card__head"><span class="card__title">⏳ 위시리스트 (충동 보류)</span></div>
+  ${wishlistList(c)}
+
+  <div class="card__head" style="margin-top:6px"><span class="card__title">반복 거래</span>
     <button class="link" data-act="add-recurring">＋ 추가</button></div>
   ${recurringList(c)}
 
   <div class="card__head" style="margin-top:6px"><span class="card__title">예정 항목</span></div>
   ${body}`;
+}
+
+function wishlistList(c) {
+  const ws = c.wishlist || [];
+  if (!ws.length) return `<div class="card"><div class="muted" style="font-size:.82rem">
+    큰 지출을 망설일 땐 여기에 담아두고 하루 뒤 다시 결정해요. 충동이 가라앉는 마법 🌊</div></div>`;
+  return ws.map((w) => {
+    const cat = catOf("expense", w.category);
+    const left = Math.max(0, Math.ceil(((w.cooldownUntil || 0) - Date.now()) / 3600000));
+    return `<div class="tx" data-wish="${w.id}">
+      <div class="tx__ico">${cat.icon}</div>
+      <div class="tx__body">
+        <div class="tx__cat">${esc(w.name || cat.label)}
+          ${w.ready ? `<span class="tx__tag" style="background:var(--income);color:#fff">결정하기</span>`
+            : `<span class="muted" style="font-size:.72rem">· ${left}시간 뒤</span>`}</div>
+        <div class="tx__memo">${won(w.amount)}</div>
+      </div>
+      ${w.ready
+        ? `<button class="btn ghost wish-btn" data-wishbuy="${w.id}">구매</button>
+           <button class="btn ghost wish-btn" data-wishresist="${w.id}">참기</button>`
+        : `<button class="recur-x" data-wishrm="${w.id}">✕</button>`}
+    </div>`;
+  }).join("");
 }
 
 function recurringList(c) {
@@ -195,6 +221,19 @@ export function questView(c) {
     <div class="muted" style="font-size:.78rem;margin-top:8px">${
       c.noSpendStreak > 0 ? `오늘까지 ${c.noSpendStreak}일째 지출 0원! 조구미가 신났어요 🎉`
         : "지출 없는 하루를 만들어 무지출 잔디를 심어보세요 🌱"
+    }</div>
+  </div>
+
+  <div class="card">
+    <div class="card__head"><span class="card__title">🌊 충동 통제</span>
+      <span class="muted" style="font-size:.78rem">${c.resistedCount || 0}번 참음</span></div>
+    <div class="grid2">
+      <div class="stat"><div class="stat__v pos">${wonShort(c.resistedTotal || 0)}</div><div class="stat__l">지금까지 지킨 돈</div></div>
+      <div class="stat"><div class="stat__v">${wonShort(c.resistedThisMonth || 0)}</div><div class="stat__l">이번 달 지킨 돈</div></div>
+    </div>
+    <div class="muted" style="font-size:.78rem;margin-top:8px">${
+      (c.resistedTotal || 0) > 0 ? `충동을 이겨내고 ${won(c.resistedTotal)}을 지켰어요. 조구미가 자랑스러워해요! 🛡️`
+        : "큰 지출을 할 때 조구미가 함께 파도타기 해줄게요 🌊"
     }</div>
   </div>
 
@@ -565,6 +604,42 @@ export function aiReviewSheet(items) {
   ${items.length ? `<button class="btn primary" id="ai-commit" style="margin-top:8px">${items.length}건 모두 저장</button>` : ""}`;
 }
 
+/* ---------- 바텀시트: 충동구매 협상 ---------- */
+export function impulseSheet(p, c, history, aiReady) {
+  const cat = catOf("expense", p.category);
+  const delay = c.goal > 0 ? Math.round(p.amount / (c.goal / 365)) : 0;
+  const allowPct = c.todayAllowance > 0 ? Math.round((p.amount / c.todayAllowance) * 100) : 0;
+  const chat = aiReady
+    ? `<div id="chat-log" class="chat-log">${history.map((h) =>
+        `<div class="chat ${h.role === "user" ? "chat--me" : "chat--ai"}">${esc(h.text)}</div>`).join("")}</div>
+       <div class="row" style="gap:8px;margin-bottom:12px">
+         <input class="input" id="imp-input" placeholder="조구미와 얘기해보기…" style="flex:1" />
+         <button class="btn ghost" id="imp-send" style="width:auto;padding:14px 16px">↑</button>
+       </div>`
+    : `<div class="card" style="background:#fff5f3">
+         <div class="muted" style="font-size:.88rem;line-height:1.7">
+           🌊 잠깐, 파도타기 시간! 스스로에게 물어봐요:<br>
+           · 이거 <b>일주일 뒤에도</b> 사고 싶을까?<br>
+           · <b>꼭 지금</b> 사야 할까, 아니면 미룰 수 있을까?<br>
+           · 비슷한 걸 <b>이미 가지고</b> 있진 않나?
+         </div></div>`;
+  return `
+  <div class="sheet__title">🌊 충동 파도타기</div>
+  <div class="mascot-wrap" style="margin:0 0 8px">${mascot("worried", 96)}</div>
+  <div class="card center">
+    <div class="muted" style="font-size:.82rem">사려는 것</div>
+    <div style="font-weight:800;font-size:1.05rem;margin:2px 0 8px">${cat.icon} ${esc(p.memo || cat.label)} · ${won(p.amount)}</div>
+    <div class="grid2">
+      <div class="stat"><div class="stat__v neg">목표 ${delay}일</div><div class="stat__l">늦어져요</div></div>
+      <div class="stat"><div class="stat__v">${c.todayAllowance > 0 ? allowPct + "%" : "-"}</div><div class="stat__l">오늘 예산의</div></div>
+    </div>
+  </div>
+  ${chat}
+  <button class="btn primary" id="imp-resist">🌊 잘 참을게요 (안 살래요)</button>
+  <button class="btn ghost" id="imp-wish" style="margin-top:10px">⏳ 위시리스트에 담기 (하루 뒤 다시 결정)</button>
+  <button class="btn ghost" id="imp-buy" style="margin-top:10px;color:var(--ink-soft)">그래도 지금 살게요</button>`;
+}
+
 /* ---------- 바텀시트: AI 코치 채팅 ---------- */
 export function coachSheet(history) {
   const msgs = history.length
@@ -645,6 +720,18 @@ export function settingsSheet(c, { onboarding = false } = {}) {
           data-budget="${cc.id}" value="${c.settings.budgets[cc.id] ? c.settings.budgets[cc.id].toLocaleString("ko-KR") : ""}" />
       </div>`).join("")}
     <button class="btn ghost" id="s-budget-save" style="margin-top:10px">예산 저장</button>
+    <hr class="soft"/>
+    <div class="card__title" style="margin-bottom:8px">🌊 충동구매 협상</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:.9rem">
+      <input type="checkbox" id="s-impulse-on" ${c.settings.impulseOn !== false ? "checked" : ""} style="width:18px;height:18px" />
+      큰 지출을 입력하면 조구미가 한 번 더 물어봐요
+    </label>
+    <div class="field">
+      <label>발동 기준 금액 (이 금액 이상)</label>
+      <input class="input amount" id="s-impulse-th" inputmode="numeric" placeholder="50,000"
+        value="${c.settings.impulseThreshold ? c.settings.impulseThreshold.toLocaleString("ko-KR") : ""}" />
+    </div>
+    <button class="btn ghost" id="s-impulse-save">충동 설정 저장</button>
     <hr class="soft"/>
     <div class="card__title" style="margin-bottom:4px">마스코트 꾸미기</div>
     <div class="muted" style="font-size:.76rem;margin-bottom:10px">

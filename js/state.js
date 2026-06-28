@@ -3,7 +3,7 @@ import { load } from "./storage.js";
 import { todayISO, monthKey, yearKey, daysBetween, toISO } from "./format.js";
 
 export function compute() {
-  const { settings, txns, jars, recurring } = load();
+  const { settings, txns, jars, recurring, wishlist, resisted } = load();
   const year = String(settings.year);
   const today = todayISO();
   const thisMonth = monthKey(today);
@@ -85,8 +85,20 @@ export function compute() {
     return { cat, limit, spent, ratio: limit > 0 ? spent / limit : 0 };
   }).sort((a, b) => b.ratio - a.ratio);
 
+  // 충동 통제: 참은 금액 / 위시리스트
+  const resistedList = resisted || [];
+  const resistedTotal = resistedList.reduce((s, r) => s + (r.amount || 0), 0);
+  const resistedThisMonth = resistedList.filter((r) => monthKey(r.date) === thisMonth)
+    .reduce((s, r) => s + (r.amount || 0), 0);
+  const resistedCount = resistedList.length;
+  const nowMs = Date.now();
+  const wishlistView = (wishlist || []).slice()
+    .sort((a, b) => (a.cooldownUntil || 0) - (b.cooldownUntil || 0))
+    .map((w) => ({ ...w, ready: nowMs >= (w.cooldownUntil || 0) }));
+
   return {
     settings, txns, actual, planned, jars: jars || [], recurring: recurring || [],
+    wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount,
     year, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,
     mIn, mOut, mNet, monthlyTarget, monthPace,

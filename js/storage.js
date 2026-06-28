@@ -29,11 +29,15 @@ const blank = () => ({
     year: new Date().getFullYear(),
     monthlyBudget: 0,       // 월 지출 예산 (오늘 쓸 수 있는 돈 계산용)
     budgets: {},            // 카테고리별 월 봉투 예산 {catId: 금액}
+    impulseOn: true,        // 충동구매 협상 사용
+    impulseThreshold: 50000,// 이 금액 이상 지출이면 협상 발동
     onboarded: false,
   },
   txns: [],                 // {id,date,type,amount,category,memo,planned,rid,period}
   jars: [],                 // 저금통(추가 목표) {id,name,emoji,target,saved}
   recurring: [],            // 반복 거래 {id,type,amount,category,memo,day,active,createdAt}
+  wishlist: [],             // 충동 보류 {id,name,amount,category,addedAt,cooldownUntil}
+  resisted: [],             // 참은 기록 {date,amount,name}
 });
 
 // 불러온 데이터에 빠진 필드 보강 (load/applyRemote/import 공통)
@@ -44,6 +48,8 @@ function normalize(c) {
   c.mascot = c.mascot && typeof c.mascot === "object" ? c.mascot : {};
   c.jars = Array.isArray(c.jars) ? c.jars : [];
   c.recurring = Array.isArray(c.recurring) ? c.recurring : [];
+  c.wishlist = Array.isArray(c.wishlist) ? c.wishlist : [];
+  c.resisted = Array.isArray(c.resisted) ? c.resisted : [];
   return c;
 }
 
@@ -134,6 +140,20 @@ export function depositJar(id, amount) {
   if (j) { j.saved = Math.max(0, (j.saved || 0) + amount); save(); }
 }
 export function removeJar(id) { load(); cache.jars = cache.jars.filter((x) => x.id !== id); save(); }
+
+/* ---------- 충동 보류(위시리스트) · 참은 기록 ---------- */
+export function addWishlist(w) {
+  load();
+  const now = Date.now();
+  cache.wishlist.push({ id: crypto.randomUUID(), addedAt: now, cooldownUntil: now + 24 * 3600 * 1000, ...w });
+  save();
+}
+export function removeWishlist(id) { load(); cache.wishlist = cache.wishlist.filter((x) => x.id !== id); save(); }
+export function recordResist(amount, name) {
+  load();
+  cache.resisted.push({ date: new Date().toISOString().slice(0, 10), amount: Math.round(amount) || 0, name: name || "" });
+  save();
+}
 
 /* ---------- 반복 거래 ---------- */
 export function addRecurring(r) {

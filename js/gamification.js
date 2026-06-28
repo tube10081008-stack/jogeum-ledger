@@ -15,7 +15,8 @@ export function gameStats(c) {
     c.streak * 10 +                   // 현재 연속
     reachedMs * 120 +                 // 목표 이정표
     monthsUnderBudget * 60 +          // 월 저축목표 달성
-    (c.bestNoSpend || 0) * 8;         // 무지출 챌린지
+    (c.bestNoSpend || 0) * 8 +        // 무지출 챌린지
+    (c.resistedCount || 0) * 30;      // 충동 극복
 
   let level = 1, cur = 0, next = LEVELS[1];
   for (let i = 0; i < LEVELS.length; i++) {
@@ -35,6 +36,8 @@ export function gameStats(c) {
     { id: "m100", icon: "👑", label: "목표 달성", got: c.progress >= 1 },
     { id: "ns3", icon: "🚯", label: "무지출 3일", got: (c.bestNoSpend || 0) >= 3 },
     { id: "ns7", icon: "🧘", label: "무지출 7일", got: (c.bestNoSpend || 0) >= 7 },
+    { id: "rs1", icon: "🌊", label: "충동 극복", got: (c.resistedCount || 0) >= 1 },
+    { id: "rs10", icon: "🛡️", label: "충동왕", got: (c.resistedCount || 0) >= 10 },
   ];
 
   return { xp, level, lvlPct, next, cur, badges, reachedMs, monthsUnderBudget };

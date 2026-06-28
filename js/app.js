@@ -1,8 +1,9 @@
 // 앱 오케스트레이터 — 라우팅 / 렌더 / 이벤트 / PWA 등록
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
-  setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring } from "./storage.js";
-import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet } from "./views.js";
+  setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring,
+  addWishlist, removeWishlist, recordResist } from "./storage.js";
+import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
 import { won, wonShort } from "./format.js";
@@ -78,8 +79,13 @@ function wireAdd(opts) {
     const t = collectAdd(opts);
     if (t.amount <= 0) return toast("금액을 입력해주세요");
     if (!t.category) return toast("분류를 선택해주세요");
-    if (opts.edit?.id) { updateTxn(opts.edit.id, t); toast("수정했어요"); }
-    else { addTxn(t); toast(t.planned ? "예정 항목을 추가했어요" : "기록 완료! +5 XP 💪"); }
+    if (opts.edit?.id) { updateTxn(opts.edit.id, t); toast("수정했어요"); closeSheet(); render(); return; }
+    // 🌊 충동구매 협상: 큰 지출이면 저장 전에 한 번 더
+    const s = compute().settings;
+    if (!t.planned && t.type === "expense" && s.impulseOn !== false && t.amount >= (s.impulseThreshold || 0)) {
+      openImpulse(t); return;
+    }
+    addTxn(t); toast(t.planned ? "예정 항목을 추가했어요" : "기록 완료! +5 XP 💪");
     closeSheet(); render();
   });
 
@@ -190,6 +196,19 @@ function openSettings({ onboarding = false } = {}) {
     setSettings({ monthlyBudget: numFrom($("#s-budget", panelEl)?.value) });
     panelEl.querySelectorAll("[data-budget]").forEach((el) => setBudget(el.dataset.budget, numFrom(el.value)));
     toast("예산을 저장했어요"); closeSheet(); render();
+  });
+
+  // 충동구매 협상 설정
+  $("#s-impulse-th", panelEl)?.addEventListener("input", () => {
+    const n = numFrom($("#s-impulse-th", panelEl).value);
+    $("#s-impulse-th", panelEl).value = n ? n.toLocaleString("ko-KR") : "";
+  });
+  $("#s-impulse-save", panelEl)?.addEventListener("click", () => {
+    setSettings({
+      impulseOn: $("#s-impulse-on", panelEl)?.checked,
+      impulseThreshold: numFrom($("#s-impulse-th", panelEl)?.value) || 50000,
+    });
+    toast("충동 설정을 저장했어요"); closeSheet(); render();
   });
 
   // 데이터 백업/복원/초기화
@@ -400,6 +419,50 @@ function openCoach() {
   renderCoach(false);
 }
 
+/* ---------- 🌊 충동구매 협상 ---------- */
+function openImpulse(pending) {
+  const aiReady = ai.isReady();
+  let history = [];
+  const draw = (busy) => {
+    openSheet(impulseSheet(pending, compute(), history, aiReady));
+    const log = $("#chat-log", panelEl); if (log) log.scrollTop = 1e9;
+    // AI 대화
+    const send = async () => {
+      const inp = $("#imp-input", panelEl); const text = inp?.value.trim();
+      if (!text || busy) return;
+      history.push({ role: "user", text }); draw(true);
+      $("#chat-log", panelEl)?.insertAdjacentHTML("beforeend", `<div class="chat chat--ai chat--typing">조구미가 생각 중… 🦕</div>`);
+      const lg = $("#chat-log", panelEl); if (lg) lg.scrollTop = 1e9;
+      try { history.push({ role: "model", text: await ai.negotiate(pending, compute(), history) }); }
+      catch (e) { history.push({ role: "model", text: "앗, 오류: " + e.message }); }
+      draw(false);
+    };
+    $("#imp-send", panelEl)?.addEventListener("click", send);
+    $("#imp-input", panelEl)?.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+    // 결정 버튼
+    $("#imp-resist", panelEl)?.addEventListener("click", () => {
+      recordResist(pending.amount, pending.memo || "");
+      toast(`🌊 잘 참았어요! ${won(pending.amount)} 지켰어요 +30 XP`); closeSheet(); render();
+    });
+    $("#imp-wish", panelEl)?.addEventListener("click", () => {
+      addWishlist({ name: pending.memo || "", amount: pending.amount, category: pending.category });
+      toast("⏳ 위시리스트에 담았어요. 하루 뒤 다시 결정해요"); closeSheet(); render();
+    });
+    $("#imp-buy", panelEl)?.addEventListener("click", () => {
+      addTxn(pending); toast("기록했어요"); closeSheet(); render();
+    });
+  };
+  draw(false);
+  // AI면 조구미가 먼저 말 걸기
+  if (aiReady) {
+    history.push({ role: "model", text: "조구미가 생각 중… 🦕" });
+    draw(true);
+    ai.negotiate(pending, compute(), []).then((msg) => {
+      history = [{ role: "model", text: msg }]; draw(false);
+    }).catch(() => { history = []; draw(false); });
+  }
+}
+
 /* ---------- 이전 백업 복원 시트 ---------- */
 async function openRevisions() {
   openSheet(`<div class="sheet__title">이전 백업 불러오는 중…</div>
@@ -527,6 +590,22 @@ viewEl.addEventListener("click", (e) => {
     if (j) openJar(j);
     return;
   }
+
+  // 위시리스트 결정
+  const wb = e.target.closest("[data-wishbuy]");
+  if (wb) {
+    const w = compute().wishlist.find((x) => x.id === wb.dataset.wishbuy);
+    if (w) { addTxn({ type: "expense", amount: w.amount, category: w.category, memo: w.name, date: todayStr(), planned: false }); removeWishlist(w.id); toast("구매로 기록했어요"); render(); }
+    return;
+  }
+  const wr = e.target.closest("[data-wishresist]");
+  if (wr) {
+    const w = compute().wishlist.find((x) => x.id === wr.dataset.wishresist);
+    if (w) { recordResist(w.amount, w.name); removeWishlist(w.id); toast(`🌊 잘 참았어요! ${won(w.amount)} 지켰어요`); render(); }
+    return;
+  }
+  const wrm = e.target.closest("[data-wishrm]");
+  if (wrm) { removeWishlist(wrm.dataset.wishrm); toast("위시리스트에서 뺐어요"); render(); return; }
 
   if (e.target.closest("#home-coach")) return openCoach();
 
