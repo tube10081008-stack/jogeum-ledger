@@ -3,7 +3,7 @@ import { load } from "./storage.js";
 import { todayISO, monthKey, yearKey, daysBetween, toISO } from "./format.js";
 
 export function compute() {
-  const { settings, txns, jars, recurring, wishlist, resisted } = load();
+  const { settings, txns, jars, recurring, wishlist, resisted, pledges } = load();
   const year = String(settings.year);
   const today = todayISO();
   const thisMonth = monthKey(today);
@@ -96,8 +96,15 @@ export function compute() {
     .sort((a, b) => (a.cooldownUntil || 0) - (b.cooldownUntil || 0))
     .map((w) => ({ ...w, ready: nowMs >= (w.cooldownUntil || 0) }));
 
+  // 무지출 서약 추적
+  const pledgeList = pledges || [];
+  const pledgedToday = pledgeList.includes(today);
+  const todayHasExpense = expenseDays.has(today);
+  const pledgeSuccessCount = pledgeList.filter((d) => d < today && !expenseDays.has(d)).length;
+
   return {
     settings, txns, actual, planned, jars: jars || [], recurring: recurring || [],
+    pledgedToday, todayHasExpense, pledgeSuccessCount,
     wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount, resistedLog: resistedList,
     year, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,

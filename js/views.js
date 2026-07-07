@@ -39,6 +39,8 @@ export function homeView(c) {
     </div>
   </div>
 
+  ${pledgeCard(c)}
+
   ${allowanceCard(c)}
 
   <div class="card">
@@ -76,6 +78,32 @@ export function homeView(c) {
       <div class="muted" style="font-size:.76rem;margin-top:5px">
         🔥 ${c.streak}일 연속 기록 · 뱃지 ${g.badges.filter((b) => b.got).length}/${g.badges.length}
       </div>
+    </div>
+  </div>`;
+}
+
+// 오늘 무지출 서약 추적
+function pledgeCard(c) {
+  const hoursLeft = Math.max(0, Math.ceil((new Date(c.today + "T24:00:00") - Date.now()) / 3600000));
+  if (!c.pledgedToday) {
+    return `<div class="card center pledge-start" data-act="pledge-start" style="cursor:pointer;background:linear-gradient(160deg,#eafaf0,#fff)">
+      <div style="font-weight:800">🌊 오늘 무지출 도전 시작</div>
+      <div class="muted" style="font-size:.8rem;margin-top:4px">탭하면 오늘을 무지출 목표일로 잠그고 추적해요</div>
+    </div>`;
+  }
+  if (c.todayHasExpense) {
+    return `<div class="card pledge-fail">
+      <div style="font-weight:800">😢 오늘 무지출 서약 — 지출 발생</div>
+      <div class="muted" style="font-size:.82rem;margin-top:4px">괜찮아요, 내일 다시 도전! 서약은 언제든 이어갈 수 있어요.</div>
+    </div>`;
+  }
+  return `<div class="card pledge-live">
+    <div class="pledge-live__row">
+      <div>
+        <div style="font-weight:800">🌊 오늘 무지출 도전 중!</div>
+        <div class="muted" style="font-size:.82rem;margin-top:4px">지금까지 <b class="pos">지출 0원</b> · 자정까지 <b>${hoursLeft}시간</b> 남았어요</div>
+      </div>
+      <div class="pledge-live__badge">진행중</div>
     </div>
   </div>`;
 }
@@ -642,7 +670,7 @@ export function promoHTML(c) {
       ${goalDays ? `<div class="promo__b">🎯 목표 달성 <b>${goalDays}일</b> 앞당기기</div>` : ""}
       <div class="promo__b">🏅 무지출 뱃지 · XP 획득${best > 0 ? ` · 최고 <b>${best}일</b>` : ""}</div>
     </div>
-    <button class="promo__cta" data-pclose>좋아, 오늘 도전할래! 💪</button>
+    <button class="promo__cta" id="promo-pledge">🌊 오늘 무지출 시작! 💪</button>
     <div class="promo__foot" data-pclose>오늘은 그만 보기</div>
   </div>`;
 }

@@ -38,6 +38,7 @@ const blank = () => ({
   recurring: [],            // 반복 거래 {id,type,amount,category,memo,day,active,createdAt}
   wishlist: [],             // 충동 보류 {id,name,amount,category,addedAt,cooldownUntil}
   resisted: [],             // 참은 기록 {date,amount,name}
+  pledges: [],              // 무지출 서약한 날짜들 ["YYYY-MM-DD"]
 });
 
 // 불러온 데이터에 빠진 필드 보강 (load/applyRemote/import 공통)
@@ -50,6 +51,7 @@ function normalize(c) {
   c.recurring = Array.isArray(c.recurring) ? c.recurring : [];
   c.wishlist = Array.isArray(c.wishlist) ? c.wishlist : [];
   c.resisted = Array.isArray(c.resisted) ? c.resisted : [];
+  c.pledges = Array.isArray(c.pledges) ? c.pledges : [];
   return c;
 }
 
@@ -153,6 +155,10 @@ export function recordResist(amount, name) {
   load();
   cache.resisted.push({ date: new Date().toISOString().slice(0, 10), amount: Math.round(amount) || 0, name: name || "" });
   save();
+}
+export function addPledge(date) {
+  load();
+  if (!cache.pledges.includes(date)) { cache.pledges.push(date); save(); }
 }
 
 /* ---------- 반복 거래 ---------- */

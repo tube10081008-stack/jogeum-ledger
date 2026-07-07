@@ -2,7 +2,7 @@
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring,
-  addWishlist, removeWishlist, recordResist } from "./storage.js";
+  addWishlist, removeWishlist, recordResist, addPledge } from "./storage.js";
 import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
@@ -661,6 +661,7 @@ viewEl.addEventListener("click", (e) => {
   if (act === "add-planned") return openAdd({ type: "expense", planned: true });
   if (act === "add-jar") return openJarNew();
   if (act === "add-recurring") return openRecurring();
+  if (act === "pledge-start") { addPledge(todayStr()); toast("🌊 오늘 무지출 도전 시작! 자정까지 지출 0원 유지해봐요"); render(); return; }
   const r = e.target.closest("[data-route]")?.dataset.route;
   if (r) go(r);
 });
@@ -691,7 +692,13 @@ function maybePromo() {
   const ov = document.createElement("div");
   ov.className = "promo";
   ov.innerHTML = promoHTML(c);
-  ov.addEventListener("click", (e) => { if (e.target.closest("[data-pclose]")) ov.remove(); });
+  ov.addEventListener("click", (e) => {
+    if (e.target.closest("#promo-pledge")) {
+      addPledge(todayStr()); toast("🌊 오늘 무지출 도전 시작! 자정까지 지출 0원 💪");
+      ov.remove(); render(); return;
+    }
+    if (e.target.closest("[data-pclose]")) ov.remove();
+  });
   document.body.appendChild(ov);
 }
 

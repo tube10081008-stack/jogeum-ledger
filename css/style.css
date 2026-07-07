@@ -206,6 +206,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .report{display:flex;gap:10px;align-items:center}
 .report .mascot{flex:none;animation:none}
 
+/* 무지출 서약 카드 */
+.pledge-live{background:linear-gradient(160deg,#eafaf0,#fff)}
+.pledge-live__row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pledge-live__badge{flex:none;background:var(--mint-d);color:#fff;font-size:.72rem;font-weight:800;
+  padding:5px 12px;border-radius:20px}
+.pledge-fail{background:#fff5f3}
+.pledge-start:active{transform:scale(.99)}
+
 /* 주간 도전 과제 */
 .quest{display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
 .quest:first-of-type{border-top:none}
