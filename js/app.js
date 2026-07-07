@@ -2,7 +2,8 @@
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring,
-  addWishlist, removeWishlist, recordResist, addPledge } from "./storage.js";
+  addWishlist, removeWishlist, recordResist, addPledge, setAiMissions, toggleAiMission } from "./storage.js";
+import { categoryBreakdown, monthDiff, spendingFeatures } from "./insights.js";
 import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
@@ -466,6 +467,67 @@ function openCoach() {
   renderCoach(false);
 }
 
+/* ---------- 🦕 AI 리포트 / 성향 / 미션 ---------- */
+function reportContext(c, period) {
+  const bd = categoryBreakdown(c.actual, c.thisMonth);
+  const diff = monthDiff(c.actual, c.thisMonth, c.today);
+  return {
+    기간: period === "week" ? "이번 주" : "이번 달",
+    올해목표: c.goal, 현재저축: Math.round(c.saved), 진행률: Math.round(c.progress * 100) + "%",
+    이번달수입: Math.round(c.mIn), 이번달지출: Math.round(c.mOut), 순저축: Math.round(c.mNet),
+    월예산: c.monthlyBudget, 무지출연속: c.noSpendStreak, 충동참은횟수: c.resistedCount,
+    카테고리분해: bd.items.slice(0, 5).map((i) => ({ cat: i.cat, pct: Math.round(i.ratio * 100), 금액: Math.round(i.amt) })),
+    지난달대비총지출증감: Math.round(diff.totalDiff),
+  };
+}
+
+function openReport() {
+  let period = "month";
+  const run = async () => {
+    openSheet(`<div class="sheet__title">📊 AI 리포트</div>
+      <div class="seg" id="rp-seg">
+        <button data-p="month" class="${period === "month" ? "on" : ""}">이번 달</button>
+        <button data-p="week" class="${period === "week" ? "on" : ""}">이번 주</button>
+      </div>
+      <div id="rp-body" class="report-body">${mascotBusy("리포트 작성 중… 🦕")}</div>`);
+    panelEl.querySelectorAll("#rp-seg button").forEach((b) =>
+      b.addEventListener("click", () => { period = b.dataset.p; run(); }));
+    try {
+      const text = await ai.report(period, reportContext(compute(), period));
+      const el = $("#rp-body", panelEl); if (el) el.innerHTML = mdLite(text);
+    } catch (e) { const el = $("#rp-body", panelEl); if (el) el.textContent = "오류: " + e.message; }
+  };
+  run();
+}
+
+function openProfile() {
+  openSheet(`<div class="sheet__title">🔎 소비 성향</div><div id="pf-body">${mascotBusy("성향 분석 중… 🦕")}</div>`);
+  ai.profile(spendingFeatures(compute().actual, todayStr())).then((p) => {
+    const el = $("#pf-body", panelEl); if (!el) return;
+    el.innerHTML = p
+      ? `<div class="center" style="font-size:1.2rem;font-weight:800;margin:6px 0 10px">${escP(p.title)}</div>
+         <div class="card">${escP(p.desc)}</div>
+         ${p.tips.length ? `<div class="card"><b>조구미의 팁</b><ul style="margin:8px 0 0 18px;line-height:1.8">${p.tips.map((t) => `<li>${escP(t)}</li>`).join("")}</ul></div>` : ""}`
+      : "분석할 데이터가 부족해요.";
+  }).catch((e) => { const el = $("#pf-body", panelEl); if (el) el.textContent = "오류: " + e.message; });
+}
+
+async function refreshMissions() {
+  toast("AI가 미션 만드는 중… ✨");
+  try {
+    const ms = await ai.missions(reportContext(compute(), "week"));
+    if (!ms.length) return toast("미션 생성 실패, 다시 시도해줘요");
+    setAiMissions(ms); toast("새 미션이 도착했어요 ✨"); render();
+  } catch (e) { toast("실패: " + e.message); }
+}
+
+// 아주 가벼운 마크다운(줄바꿈·불릿) → HTML
+function mdLite(t) {
+  return escP(t).replace(/^\s*[-*]\s+(.*)$/gm, "• $1").replace(/\n/g, "<br>");
+}
+const escP = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function mascotBusy(msg) { return `<div class="center" style="padding:24px 0"><div class="muted">${msg}</div></div>`; }
+
 /* ---------- 🌊 충동구매 협상 ---------- */
 function openImpulse(pending) {
   const aiReady = ai.isReady();
@@ -654,6 +716,9 @@ viewEl.addEventListener("click", (e) => {
   const wrm = e.target.closest("[data-wishrm]");
   if (wrm) { removeWishlist(wrm.dataset.wishrm); toast("위시리스트에서 뺐어요"); render(); return; }
 
+  const aim = e.target.closest("[data-aim]");
+  if (aim) { toggleAiMission(+aim.dataset.aim); render(); return; }
+
   if (e.target.closest("#home-coach")) return openCoach();
 
   const act = e.target.closest("[data-act]")?.dataset.act;
@@ -662,6 +727,9 @@ viewEl.addEventListener("click", (e) => {
   if (act === "add-jar") return openJarNew();
   if (act === "add-recurring") return openRecurring();
   if (act === "pledge-start") { addPledge(todayStr()); toast("🌊 오늘 무지출 도전 시작! 자정까지 지출 0원 유지해봐요"); render(); return; }
+  if (act === "ai-report") return openReport();
+  if (act === "ai-profile") return openProfile();
+  if (act === "ai-missions") return refreshMissions();
   const r = e.target.closest("[data-route]")?.dataset.route;
   if (r) go(r);
 });

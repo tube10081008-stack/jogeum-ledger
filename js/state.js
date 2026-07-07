@@ -3,7 +3,7 @@ import { load } from "./storage.js";
 import { todayISO, monthKey, yearKey, daysBetween, toISO } from "./format.js";
 
 export function compute() {
-  const { settings, txns, jars, recurring, wishlist, resisted, pledges } = load();
+  const { settings, txns, jars, recurring, wishlist, resisted, pledges, aiMissions } = load();
   const year = String(settings.year);
   const today = todayISO();
   const thisMonth = monthKey(today);
@@ -104,7 +104,7 @@ export function compute() {
 
   return {
     settings, txns, actual, planned, jars: jars || [], recurring: recurring || [],
-    pledgedToday, todayHasExpense, pledgeSuccessCount,
+    pledgedToday, todayHasExpense, pledgeSuccessCount, aiMissions: aiMissions || [],
     wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount, resistedLog: resistedList,
     year, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,

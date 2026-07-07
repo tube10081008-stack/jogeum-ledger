@@ -39,6 +39,7 @@ const blank = () => ({
   wishlist: [],             // 충동 보류 {id,name,amount,category,addedAt,cooldownUntil}
   resisted: [],             // 참은 기록 {date,amount,name}
   pledges: [],              // 무지출 서약한 날짜들 ["YYYY-MM-DD"]
+  aiMissions: [],           // AI 절약 미션 {title,tip,done}
 });
 
 // 불러온 데이터에 빠진 필드 보강 (load/applyRemote/import 공통)
@@ -52,6 +53,7 @@ function normalize(c) {
   c.wishlist = Array.isArray(c.wishlist) ? c.wishlist : [];
   c.resisted = Array.isArray(c.resisted) ? c.resisted : [];
   c.pledges = Array.isArray(c.pledges) ? c.pledges : [];
+  c.aiMissions = Array.isArray(c.aiMissions) ? c.aiMissions : [];
   return c;
 }
 
@@ -159,6 +161,15 @@ export function recordResist(amount, name) {
 export function addPledge(date) {
   load();
   if (!cache.pledges.includes(date)) { cache.pledges.push(date); save(); }
+}
+export function setAiMissions(arr) {
+  load();
+  cache.aiMissions = (arr || []).map((m) => ({ title: m.title, tip: m.tip, done: false }));
+  save();
+}
+export function toggleAiMission(i) {
+  load();
+  if (cache.aiMissions[i]) { cache.aiMissions[i].done = !cache.aiMissions[i].done; save(); }
 }
 
 /* ---------- 반복 거래 ---------- */

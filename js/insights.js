@@ -76,6 +76,54 @@ export function donutSVG(slices, size = 160) {
 export const PALETTE = ["#7ed6a7", "#54b487", "#f4c152", "#f0a35a", "#e26d6d",
   "#9ad4f0", "#b39ddb", "#a3b18a"];
 
+// 8) 이상 지출 감지: 카테고리별 과거 월평균 대비 이번 달 급증 감지 (순수 연산)
+export function anomalies(actual, thisMonth) {
+  const byCat = {};
+  for (const t of actual) {
+    if (t.type !== "expense") continue;
+    const mk = monthKey(t.date);
+    (byCat[t.category] = byCat[t.category] || {});
+    byCat[t.category][mk] = (byCat[t.category][mk] || 0) + t.amount;
+  }
+  const out = [];
+  for (const cat in byCat) {
+    const months = byCat[cat];
+    const prior = Object.keys(months).filter((m) => m < thisMonth).map((m) => months[m]);
+    const cur = months[thisMonth] || 0;
+    if (prior.length < 1 || cur <= 0) continue;
+    const avg = prior.reduce((s, v) => s + v, 0) / prior.length;
+    if (avg <= 0) continue;
+    const ratio = cur / avg;
+    if (ratio >= 1.5 && cur - avg >= 20000) out.push({ cat, cur, avg, ratio });
+  }
+  return out.sort((a, b) => b.ratio - a.ratio);
+}
+
+// 10) 소비 성향 특징 추출 (프로파일 AI 컨텍스트)
+export function spendingFeatures(actual, today) {
+  const exp = actual.filter((t) => t.type === "expense");
+  const total = exp.reduce((s, t) => s + t.amount, 0);
+  const byCat = {};
+  let weekend = 0, weekday = 0;
+  const dow = [0, 0, 0, 0, 0, 0, 0];
+  for (const t of exp) {
+    byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+    const d = new Date(t.date + "T00:00:00").getDay();
+    dow[d] += t.amount;
+    if (d === 0 || d === 6) weekend += t.amount; else weekday += t.amount;
+  }
+  const topCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([cat, amt]) => ({ cat, pct: total > 0 ? Math.round((amt / total) * 100) : 0 }));
+  const dowNames = ["일", "월", "화", "수", "목", "금", "토"];
+  const topDow = dowNames[dow.indexOf(Math.max(...dow))];
+  return {
+    거래수: exp.length, 총지출: Math.round(total),
+    평균거래액: exp.length ? Math.round(total / exp.length) : 0,
+    상위카테고리: topCats, 지출많은요일: topDow,
+    주말지출비중: total > 0 ? Math.round((weekend / total) * 100) : 0,
+  };
+}
+
 // 9) 몬테카를로: 월수입/지출의 변동성을 반영해 연말 잔액 분포·목표 달성 확률 추정
 export function monteCarlo(actual, { saved, monthsLeft, goal }, monthKeyFn, runs = 3000) {
   // 월별 수입/지출 집계

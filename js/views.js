@@ -6,7 +6,7 @@ import { getMascot } from "./storage.js";
 import { info as syncInfo } from "./sync.js";
 import { info as aiInfo } from "./ai.js";
 import { gameStats, levelTitle, weeklyQuests } from "./gamification.js";
-import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo } from "./insights.js";
+import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo, anomalies } from "./insights.js";
 import { parseISO, monthKey } from "./format.js";
 
 /* ---------- 홈 ---------- */
@@ -253,6 +253,8 @@ export function questView(c) {
       </div>`).join("")}
   </div>
 
+  ${aiMissionsCard(c)}
+
   <div class="card">
     <div class="card__head"><span class="card__title">🚯 무지출 챌린지</span>
       <span class="muted" style="font-size:.78rem">최고 ${c.bestNoSpend || 0}일</span></div>
@@ -322,6 +324,17 @@ export function insightsView(c) {
 
   return `
   <h1 class="screen-title">분석</h1>
+
+  ${aiInfo().key ? `<div class="card">
+    <div class="card__title" style="margin-bottom:10px">🦕 AI 인사이트</div>
+    <div class="row">
+      <button class="btn ghost" data-act="ai-report">📊 리포트 받기</button>
+      <button class="btn ghost" data-act="ai-profile">🔎 소비 성향</button>
+    </div>
+  </div>` : ""}
+
+  ${anomalyCard(c)}
+
   <div class="card">
     <div class="card__title" style="margin-bottom:10px">카테고리별 지출</div>
     ${donut}
@@ -348,6 +361,24 @@ export function insightsView(c) {
 
   ${reportCard(c, diff)}`;
 }
+
+// 8) 이상 지출 감지 (순수 연산)
+function anomalyCard(c) {
+  const items = anomalies(c.actual, c.thisMonth).slice(0, 4);
+  if (!items.length) return "";
+  return `<div class="card" style="border:1.5px solid #f3d0c8">
+    <div class="card__title" style="margin-bottom:8px">⚠️ 이상 지출 감지</div>
+    ${items.map((a) => {
+      const cat = catOf("expense", a.cat);
+      return `<div class="anom">
+        <span>${cat.icon} ${esc(cat.label)}</span>
+        <span class="neg" style="font-weight:700">평소의 ${a.ratio.toFixed(1)}배 · ${wonShort(a.cur)}</span>
+      </div>`;
+    }).join("")}
+    <div class="muted" style="font-size:.76rem;margin-top:6px">과거 월평균보다 크게 늘어난 항목이에요. 한번 살펴볼까요?</div>
+  </div>`;
+}
+
 
 // 9) 몬테카를로 목표 달성 확률 (순수 연산)
 function monteCarloCard(c) {
@@ -435,6 +466,25 @@ function reportCard(c, diff) {
       <div><div style="font-size:.92rem;line-height:1.6">${line}</div>
         <div class="muted" style="font-size:.8rem;margin-top:4px">${totalLine}</div></div>
     </div>
+  </div>`;
+}
+
+// 5) AI 맞춤 절약 미션
+function aiMissionsCard(c) {
+  if (!aiInfo().key) return "";
+  const ms = c.aiMissions || [];
+  const body = ms.length
+    ? ms.map((m, i) => `
+      <label class="aim ${m.done ? "aim--done" : ""}">
+        <input type="checkbox" data-aim="${i}" ${m.done ? "checked" : ""} />
+        <div><div class="aim__t">${esc(m.title)}</div>
+          <div class="muted" style="font-size:.76rem">${esc(m.tip || "")}</div></div>
+      </label>`).join("")
+    : `<div class="muted" style="font-size:.82rem;margin-bottom:10px">내 소비 패턴에 맞는 이번 주 절약 미션을 AI가 만들어줄게요.</div>`;
+  return `<div class="card">
+    <div class="card__head"><span class="card__title">✨ AI 맞춤 미션</span>
+      <button class="link" data-act="ai-missions">${ms.length ? "새로 받기" : "미션 받기"}</button></div>
+    ${body}
   </div>`;
 }
 

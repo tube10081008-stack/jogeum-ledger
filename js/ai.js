@@ -138,6 +138,38 @@ export async function coach(history, c) {
   return data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "(응답 없음)";
 }
 
+// 4) AI 리포트 — 자연어 내러티브 + 행동 제안
+export async function report(period, ctx) {
+  const label = period === "week" ? "이번 주" : "이번 달";
+  const sys = `너는 '조구미'라는 다정한 아기공룡 가계부 코치야. 아래 데이터(JSON)로 ${label} 리포트를 써.
+- 한국어, 따뜻하고 간결하게. 먼저 3~4문장 요약(잘한 점 칭찬 + 개선점 1가지).
+- 그다음 '이렇게 해볼까요?' 아래 구체적 행동 3가지를 짧은 불릿(-)으로.
+- 숫자는 만원 단위로 읽기 쉽게. 이모지 약간 🦕. 데이터: ${JSON.stringify(ctx)}`;
+  return generate({ system: sys, prompt: `${label} 리포트를 써줘.`, temperature: 0.6 });
+}
+
+// 5) AI 맞춤 절약 미션 3개
+export async function missions(ctx) {
+  const sys = `아래 소비 데이터를 보고 '이번 주' 맞춤 절약 미션 3개를 JSON 배열로 만들어.
+각 항목: {title:"짧고 구체적인 미션", tip:"한 줄 팁"}. 달성 가능하고 개인화되게(예: "카페 주 2회 이하").
+설명 없이 JSON 배열만.`;
+  const text = await generate({ system: sys, prompt: JSON.stringify(ctx), json: true, temperature: 0.5 });
+  const arr = parseJSON(text);
+  return Array.isArray(arr) ? arr.slice(0, 3).map((m) => ({
+    title: String(m.title || "").slice(0, 40), tip: String(m.tip || "").slice(0, 90),
+  })) : [];
+}
+
+// 10) 소비 성향 프로파일
+export async function profile(features) {
+  const sys = `아래 소비 특징(JSON)으로 사용자의 소비 성향을 재미있고 따뜻하게 분석해.
+JSON만 출력: {"title":"성향 별명(이모지 포함, 예: 🌙 야식 요정)","desc":"2~3문장","tips":["팁1","팁2"]}.`;
+  const text = await generate({ system: sys, prompt: JSON.stringify(features), json: true, temperature: 0.7 });
+  const o = parseJSON(text);
+  return o && o.title ? { title: String(o.title).slice(0, 40), desc: String(o.desc || "").slice(0, 200),
+    tips: Array.isArray(o.tips) ? o.tips.slice(0, 3).map((t) => String(t).slice(0, 80)) : [] } : null;
+}
+
 // 10) 충동구매 협상 — 조구미가 다정하게 재고하도록 유도
 export async function negotiate(pending, c, history) {
   const cat = catOf("expense", pending.category);

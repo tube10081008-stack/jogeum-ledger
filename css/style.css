@@ -206,6 +206,19 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .report{display:flex;gap:10px;align-items:center}
 .report .mascot{flex:none;animation:none}
 
+/* 이상 지출 */
+.anom{display:flex;justify-content:space-between;font-size:.88rem;padding:5px 0}
+
+/* AI 맞춤 미션 */
+.aim{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}
+.aim:first-of-type{border-top:none}
+.aim input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--mint-d)}
+.aim__t{font-weight:700;font-size:.92rem}
+.aim--done .aim__t{text-decoration:line-through;color:var(--ink-soft)}
+
+/* AI 리포트 본문 */
+.report-body{font-size:.92rem;line-height:1.7;white-space:normal;padding:2px}
+
 /* 무지출 서약 카드 */
 .pledge-live{background:linear-gradient(160deg,#eafaf0,#fff)}
 .pledge-live__row{display:flex;align-items:center;justify-content:space-between;gap:10px}
