@@ -3,12 +3,33 @@ import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring,
   addWishlist, removeWishlist, recordResist } from "./storage.js";
-import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet } from "./views.js";
+import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
 import { won, wonShort } from "./format.js";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+
+// 음성 인식 (Web Speech API) — 지원 브라우저에서만
+function startDictation(onText, onDone) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast("이 브라우저는 음성 인식을 지원하지 않아요"); return null; }
+  const r = new SR();
+  r.lang = "ko-KR"; r.interimResults = true; r.continuous = false;
+  let final = "";
+  r.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t; else interim += t;
+    }
+    onText((final + interim).trim());
+  };
+  r.onerror = (e) => { if (e.error !== "aborted") toast("음성 인식 오류: " + e.error); };
+  r.onend = () => onDone && onDone(final.trim());
+  try { r.start(); } catch { return null; }
+  return r;
+}
 
 const $ = (s, r = document) => r.querySelector(s);
 const viewEl = $("#view");
@@ -107,6 +128,18 @@ function wireAdd(opts) {
       const items = await ai.extractReceipt({ mime: "image/png", data: base }, todayStr());
       openAIReview(items);
     } catch (e) { toast("영수증 분석 실패: " + e.message); }
+  });
+
+  // 🎤 메모 음성 입력
+  let memoRec = null;
+  $("#f-memo-mic", panelEl)?.addEventListener("click", () => {
+    const btn = $("#f-memo-mic", panelEl), memo = $("#f-memo", panelEl);
+    if (memoRec) { memoRec.stop(); memoRec = null; return; }
+    btn.classList.add("mic-on");
+    memoRec = startDictation(
+      (text) => { if (memo) memo.value = text; },
+      () => { btn.classList.remove("mic-on"); memoRec = null; memo?.dispatchEvent(new Event("input")); });
+    if (!memoRec) btn.classList.remove("mic-on");
   });
 
   // 5) 스마트 자동 분류 — 메모 입력 후 분류 미선택이면 추천
@@ -365,9 +398,23 @@ function openJar(jar) {
 function openAINatural() {
   openSheet(`
     <div class="sheet__title">✨ 자연어로 입력</div>
-    <div class="muted" style="font-size:.8rem;margin-bottom:10px">하루치를 한 번에 적어보세요. 예) "점심 김밥 9천, 카페 4500, 어제 택시 12000"</div>
-    <textarea class="input" id="nl-text" rows="4" placeholder="여기에 자유롭게…"></textarea>
+    <div class="muted" style="font-size:.8rem;margin-bottom:10px">말하거나 적어보세요. 예) "점심 김밥 9천, 카페 4500, 어제 택시 12000"</div>
+    <div class="mic-wrap">
+      <textarea class="input" id="nl-text" rows="4" placeholder="🎤 버튼을 누르고 말해보세요…"></textarea>
+      <button class="mic-btn mic-btn--ta" id="nl-mic" type="button" aria-label="음성 입력">🎤</button>
+    </div>
     <button class="btn primary" id="nl-go" style="margin-top:12px">AI로 분석</button>`);
+  let rec = null;
+  $("#nl-mic", panelEl)?.addEventListener("click", () => {
+    const btn = $("#nl-mic", panelEl), ta = $("#nl-text", panelEl);
+    if (rec) { rec.stop(); rec = null; return; }
+    const baseline = ta.value ? ta.value + " " : "";
+    btn.classList.add("mic-on"); toast("듣고 있어요… 🎤");
+    rec = startDictation(
+      (text) => { ta.value = baseline + text; },
+      () => { btn.classList.remove("mic-on"); rec = null; });
+    if (!rec) btn.classList.remove("mic-on");
+  });
   $("#nl-go", panelEl)?.addEventListener("click", async () => {
     const text = $("#nl-text", panelEl)?.value.trim();
     if (!text) return toast("내용을 입력해주세요");
@@ -633,6 +680,21 @@ function maybeOnboard() {
   if (!compute().settings.onboarded) openSettings({ onboarding: true });
 }
 
+// 초기 접속 무지출 광고 팝업 (하루 1회, 기기 로컬 상태)
+const PROMO_KEY = "jogeum.promo";
+function maybePromo() {
+  const c = compute();
+  if (!c.settings.onboarded) return;
+  if (localStorage.getItem(PROMO_KEY) === todayStr()) return;
+  if (document.querySelector(".promo")) return;
+  localStorage.setItem(PROMO_KEY, todayStr());
+  const ov = document.createElement("div");
+  ov.className = "promo";
+  ov.innerHTML = promoHTML(c);
+  ov.addEventListener("click", (e) => { if (e.target.closest("[data-pclose]")) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
 materializeRecurring(new Date().toISOString().slice(0, 10));  // 반복 거래 자동 생성
 render();
 sync.start();                       // 변경 자동 업로드 연결
@@ -640,10 +702,10 @@ if (sync.isConfigured()) {
   // 시작 시 원격과 1회 동기화 → 더 최신 데이터 채택 후 렌더
   sync.syncNow().then(() => {
     materializeRecurring(new Date().toISOString().slice(0, 10));
-    render(); maybeOnboard();
-  }).catch(() => maybeOnboard());
+    render(); maybeOnboard(); maybePromo();
+  }).catch(() => { maybeOnboard(); maybePromo(); });
 } else {
-  maybeOnboard();
+  maybeOnboard(); maybePromo();
 }
 
 if ("serviceWorker" in navigator) {

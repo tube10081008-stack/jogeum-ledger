@@ -98,7 +98,7 @@ export function compute() {
 
   return {
     settings, txns, actual, planned, jars: jars || [], recurring: recurring || [],
-    wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount,
+    wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount, resistedLog: resistedList,
     year, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,
     mIn, mOut, mNet, monthlyTarget, monthPace,

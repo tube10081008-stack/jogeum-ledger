@@ -206,6 +206,45 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .report{display:flex;gap:10px;align-items:center}
 .report .mascot{flex:none;animation:none}
 
+/* 주간 도전 과제 */
+.quest{display:flex;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.quest:first-of-type{border-top:none}
+.quest__ic{width:34px;height:34px;border-radius:10px;background:#f2f6f3;display:grid;place-items:center;font-size:1.1rem;flex:none}
+.quest__body{flex:1;min-width:0}
+.quest__top{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px}
+.quest--done .quest__top{color:var(--income);font-weight:700}
+
+/* 음성 입력 마이크 */
+.mic-wrap{position:relative}
+.mic-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:34px;height:34px;
+  border-radius:50%;background:#f2f6f3;font-size:1rem}
+.mic-btn--ta{top:12px;transform:none}
+.mic-btn.mic-on{background:var(--expense);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,109,109,.5)}50%{box-shadow:0 0 0 8px rgba(226,109,109,0)}}
+.mic-wrap .input{padding-right:48px}
+
+/* 초기 광고 팝업 */
+.promo{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:rgba(30,40,36,.55);animation:fade .2s}
+.promo__card{position:relative;width:100%;max-width:360px;border-radius:26px;padding:24px 20px 18px;
+  text-align:center;background:linear-gradient(160deg,#eafaf0,#d6f0e2 60%,#fff);
+  box-shadow:0 20px 50px rgba(40,70,55,.35);animation:pop .3s ease}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+.promo__x{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;
+  background:rgba(0,0,0,.06);color:var(--ink-soft);font-size:.85rem}
+.promo__chip{display:inline-block;background:var(--mint-d);color:#fff;font-size:.7rem;font-weight:800;
+  padding:4px 12px;border-radius:20px;letter-spacing:.02em;margin-bottom:6px}
+.promo__mascot{margin:4px 0}
+.promo__mascot .mascot{width:120px;height:120px}
+.promo__title{font-size:1.35rem;font-weight:800;line-height:1.35;margin:2px 0 14px}
+.promo__hot{color:var(--expense)}
+.promo__benefits{text-align:left;background:rgba(255,255,255,.7);border-radius:16px;padding:12px 14px;margin-bottom:16px}
+.promo__b{font-size:.88rem;padding:4px 0;color:var(--ink)}
+.promo__cta{width:100%;padding:15px;border-radius:15px;font-weight:800;font-size:1.02rem;color:#fff;
+  background:linear-gradient(135deg,var(--mint),var(--mint-d));box-shadow:0 8px 20px rgba(84,180,135,.45)}
+.promo__cta:active{transform:scale(.98)}
+.promo__foot{margin-top:12px;font-size:.8rem;color:var(--ink-soft);text-decoration:underline}
+
 /* 위시리스트 결정 버튼 */
 .wish-btn{width:auto;padding:7px 12px;font-size:.8rem;margin-left:6px;flex:none}
 

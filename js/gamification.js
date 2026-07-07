@@ -6,9 +6,34 @@ const MILESTONES = [0.1, 0.25, 0.5, 0.75, 1.0];
 // 레벨 임계값 (누적 XP)
 const LEVELS = [0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200, 4000];
 
+// 레벨 타이틀
+const TITLES = ["새싹 🌱", "절약 입문 🐣", "알뜰러 🪙", "저축가 🐖", "살림꾼 🧺",
+  "자린고비 💪", "저축 고수 🎯", "머니 마스터 💎", "절약왕 👑", "전설의 자산가 🏆"];
+export function levelTitle(level) { return TITLES[Math.min(level - 1, TITLES.length - 1)] || TITLES[0]; }
+
+// 주간 도전 과제 (최근 7일 기준, 진행형)
+export function weeklyQuests(c) {
+  const end = new Date(c.today + "T00:00:00");
+  const last7 = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(end); d.setDate(d.getDate() - i); last7.push(d.toISOString().slice(0, 10)); }
+  const set = new Set(last7);
+  const inWeek = c.actual.filter((t) => set.has(t.date));
+  const expDays = new Set(inWeek.filter((t) => t.type === "expense").map((t) => t.date));
+  const noSpend = last7.filter((d) => d <= c.today && !expDays.has(d)).length;
+  const records = inWeek.length;
+  const resistedWeek = (c.resistedLog || []).filter((r) => set.has(r.date)).length;
+  const q = [
+    { icon: "🚯", label: "무지출 2일 만들기", cur: noSpend, target: 2 },
+    { icon: "📝", label: "이번 주 7건 기록", cur: records, target: 7 },
+    { icon: "🌊", label: "충동 1번 참기", cur: resistedWeek, target: 1 },
+  ].map((x) => ({ ...x, cur: Math.min(x.cur, x.target), done: x.cur >= x.target }));
+  return q;
+}
+
 export function gameStats(c) {
   const reachedMs = MILESTONES.filter((m) => c.progress >= m).length;
   const monthsUnderBudget = monthsHittingTarget(c);
+  const questsDone = weeklyQuests(c).filter((q) => q.done).length;
 
   const xp =
     c.loggedDays.length * 5 +        // 기록 습관
@@ -16,7 +41,8 @@ export function gameStats(c) {
     reachedMs * 120 +                 // 목표 이정표
     monthsUnderBudget * 60 +          // 월 저축목표 달성
     (c.bestNoSpend || 0) * 8 +        // 무지출 챌린지
-    (c.resistedCount || 0) * 30;      // 충동 극복
+    (c.resistedCount || 0) * 30 +     // 충동 극복
+    questsDone * 40;                  // 주간 도전 과제
 
   let level = 1, cur = 0, next = LEVELS[1];
   for (let i = 0; i < LEVELS.length; i++) {

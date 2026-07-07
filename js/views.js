@@ -5,7 +5,7 @@ import { mascot, mascotSVG, mascotState, MOODS } from "./mascot.js";
 import { getMascot } from "./storage.js";
 import { info as syncInfo } from "./sync.js";
 import { info as aiInfo } from "./ai.js";
-import { gameStats } from "./gamification.js";
+import { gameStats, levelTitle, weeklyQuests } from "./gamification.js";
 import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo } from "./insights.js";
 import { parseISO, monthKey } from "./format.js";
 
@@ -205,11 +205,26 @@ export function questView(c) {
   <div class="card level">
     <div class="level__badge">Lv.${g.level}</div>
     <div class="level__info">
-      <div style="font-weight:800;font-size:1.05rem">${g.xp} XP</div>
+      <div style="font-weight:800;font-size:1.05rem">${levelTitle(g.level)}</div>
+      <div class="muted" style="font-size:.78rem">${g.xp} XP</div>
       <div class="xpbar"><div class="xpbar__fill" style="width:${g.lvlPct}%"></div></div>
       <div class="muted" style="font-size:.76rem;margin-top:5px">다음 레벨까지 ${Math.max(0, g.next - g.xp)} XP</div>
     </div>
   </div>
+
+  <div class="card">
+    <div class="card__head"><span class="card__title">🎯 이번 주 도전 과제</span>
+      <span class="muted" style="font-size:.74rem">완료 시 +40 XP</span></div>
+    ${weeklyQuests(c).map((q) => `
+      <div class="quest ${q.done ? "quest--done" : ""}">
+        <div class="quest__ic">${q.done ? "✅" : q.icon}</div>
+        <div class="quest__body">
+          <div class="quest__top"><span>${esc(q.label)}</span><span class="muted">${q.cur}/${q.target}</span></div>
+          <div class="bar"><div class="bar__fill" style="width:${Math.round((q.cur / q.target) * 100)}%"></div></div>
+        </div>
+      </div>`).join("")}
+  </div>
+
   <div class="card">
     <div class="card__head"><span class="card__title">🚯 무지출 챌린지</span>
       <span class="muted" style="font-size:.78rem">최고 ${c.bestNoSpend || 0}일</span></div>
@@ -461,7 +476,10 @@ export function addSheet({ type = "expense", planned = false, edit = null } = {}
     <div class="field"><label>날짜</label>
       <input class="input" id="f-date" type="date" value="${t.date}" /></div>
     <div class="field"><label>메모 (선택)</label>
-      <input class="input" id="f-memo" placeholder="예: 점심" value="${esc(t.memo || "")}" /></div>
+      <div class="mic-wrap">
+        <input class="input" id="f-memo" placeholder="예: 점심" value="${esc(t.memo || "")}" />
+        <button class="mic-btn" id="f-memo-mic" type="button" aria-label="음성 입력">🎤</button>
+      </div></div>
   </div>
   <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:.9rem">
     <input type="checkbox" id="f-planned" ${t.planned ? "checked" : ""} style="width:18px;height:18px" />
@@ -602,6 +620,31 @@ export function aiReviewSheet(items) {
   <div class="muted" style="font-size:.78rem;margin-bottom:10px">맞는지 확인하고 저장해요. 틀린 항목은 ✕로 빼면 돼요.</div>
   ${rows || `<div class="empty">${mascot("worried", 80)}<p>인식된 거래가 없어요. 다시 시도해볼까요?</p></div>`}
   ${items.length ? `<button class="btn primary" id="ai-commit" style="margin-top:8px">${items.length}건 모두 저장</button>` : ""}`;
+}
+
+/* ---------- 초기 광고 팝업: 무지출 챌린지 동기 강화 ---------- */
+export function promoHTML(c) {
+  const streak = c.noSpendStreak || 0;
+  const avgDaily = Math.round((c.avgMonthlyExpense || 0) / 30);
+  const goalDays = c.goal > 0 && avgDaily > 0 ? Math.max(1, Math.round(avgDaily / (c.goal / 365))) : 0;
+  const headline = streak > 0
+    ? `지금 <span class="promo__hot">${streak}일 연속</span> 무지출!<br>오늘도 이어갈래요? 🔥`
+    : `오늘, <span class="promo__hot">무지출</span>에<br>도전해볼까요? 🌱`;
+  const best = (c.bestNoSpend || 0);
+  return `
+  <div class="promo__card">
+    <button class="promo__x" data-pclose aria-label="닫기">✕</button>
+    <div class="promo__chip">조구미 챌린지 · 오늘의 미션</div>
+    <div class="promo__mascot">${mascotSVG(streak > 0 ? "celebrate" : "happy", 120)}</div>
+    <div class="promo__title">${headline}</div>
+    <div class="promo__benefits">
+      <div class="promo__b">💰 하루 무지출 = 평균 <b>${won(avgDaily || 0)}</b> 절약</div>
+      ${goalDays ? `<div class="promo__b">🎯 목표 달성 <b>${goalDays}일</b> 앞당기기</div>` : ""}
+      <div class="promo__b">🏅 무지출 뱃지 · XP 획득${best > 0 ? ` · 최고 <b>${best}일</b>` : ""}</div>
+    </div>
+    <button class="promo__cta" data-pclose>좋아, 오늘 도전할래! 💪</button>
+    <div class="promo__foot" data-pclose>오늘은 그만 보기</div>
+  </div>`;
 }
 
 /* ---------- 바텀시트: 충동구매 협상 ---------- */
