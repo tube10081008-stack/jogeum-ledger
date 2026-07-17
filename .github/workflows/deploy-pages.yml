@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-      - claude/multi-project-bottleneck-analysis-ppa8qq
   workflow_dispatch:
 
 permissions:
