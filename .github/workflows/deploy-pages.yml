@@ -28,6 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        with:
+          # Pages가 아직 비활성이면 워크플로우가 직접 활성화(수동 설정 불필요).
+          enablement: true
       - name: Upload repository root as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
