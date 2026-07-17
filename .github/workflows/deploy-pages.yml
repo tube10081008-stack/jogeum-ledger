@@ -1,0 +1,38 @@
+name: Deploy Ledger PWA to GitHub Pages
+
+# 이 저장소는 구 모노레포(Urge-surfing)의 ledger/ 폴더를 독립 저장소로 분리한 것입니다.
+# 콘텐츠가 저장소 루트에 있으므로 업로드 경로를 'ledger' → '.' 로 조정했습니다.
+# (한 번만) 저장소 Settings → Pages → Source 를 "GitHub Actions"로 설정해야 동작.
+on:
+  push:
+    branches:
+      - main
+      - claude/multi-project-bottleneck-analysis-ppa8qq
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 배포 1개만 (최신 우선)
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload repository root as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
