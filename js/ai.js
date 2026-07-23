@@ -113,18 +113,32 @@ export async function classify(memo, type) {
   return CATEGORIES[type].some((c) => c.id === id) ? id : null;
 }
 
-// 3) AI 코치 — 재정 요약 컨텍스트 + 대화
+// 코치/질문용 상세 거래 내역 (메모·분류로 구체적인 질문에 답할 수 있도록)
+// 형식: "YYYY-MM-DD 유형 금액 분류 메모" (최근순). 너무 많으면 상한만 넘기고 나머지 건수는 알려줌.
+function txnLines(c, limit = 600) {
+  const rows = (c.actual || []).slice().sort((a, b) => (a.date < b.date ? 1 : -1));
+  const lines = rows.slice(0, limit).map((t) =>
+    `${t.date} ${t.type === "income" ? "수입" : "지출"} ${Math.round(t.amount)} ${catOf(t.type, t.category).label}${t.memo ? " " + String(t.memo).slice(0, 30) : ""}`);
+  return { lines, more: Math.max(0, rows.length - lines.length) };
+}
+
+// 3) AI 코치 — 재정 요약 + 거래 내역 컨텍스트 + 대화
 export async function coach(history, c) {
-  const top = (c.envelopes || []).slice(0, 3);
   const ctx = {
-    올해목표: c.goal, 현재저축: Math.round(c.saved), 진행률: Math.round(c.progress * 100) + "%",
+    오늘: c.today, 올해목표: c.goal, 현재저축: Math.round(c.saved), 진행률: Math.round(c.progress * 100) + "%",
     이번달수입: Math.round(c.mIn), 이번달지출: Math.round(c.mOut), 이번달순저축: Math.round(c.mNet),
     월지출예산: c.monthlyBudget, 오늘쓸수있는돈: Math.round(c.todayAllowance),
     무지출연속: c.noSpendStreak, 남은개월: c.monthsLeft,
+    봉투예산: (c.envelopes || []).slice(0, 3).map((e) => ({ 분류: catOf("expense", e.cat).label, 한도: e.limit, 쓴돈: Math.round(e.spent) })),
   };
-  const sys = `너는 '조구미'라는 귀여운 아기공룡 가계부 코치야. 한국어로 친근하고 간결하게(3~5문장),
-이모지 약간. 아래 사용자 재정 데이터(JSON)에 근거해 구체적으로 조언해. 숫자는 만원 단위로 읽기 쉽게.
-모르면 모른다고 해. 데이터: ${JSON.stringify(ctx)}`;
+  const { lines, more } = txnLines(c);
+  const sys = `너는 '조구미'라는 귀여운 아기공룡 가계부 코치야. 한국어로 친근하고 간결하게, 이모지 약간 🦕.
+아래 '재정요약'과 '거래내역'에 근거해 구체적으로 답해. 숫자는 만원 단위로 읽기 쉽게.
+사용자가 특정 항목(메모/상호/분류/기간)의 합계·건수를 물으면, 거래내역에서 직접 해당 항목을 찾아 더해서 정확한 금액과 건수로 답해줘. 필요하면 짧은 목록으로 정리해도 돼.
+거래내역에 없는 정보만 "기록이 없어 모르겠어"라고 말해.
+재정요약(JSON): ${JSON.stringify(ctx)}
+거래내역(형식: "날짜 유형 금액(원) 분류 메모", 최근순${more ? `, 이 외 오래된 ${more}건 더 있음` : ""}):
+${lines.join("\n")}`;
   // 대화 history: [{role:'user'|'model', text}]
   const c2 = getCfg();
   const contents = history.map((h) => ({ role: h.role, parts: [{ text: h.text }] }));
