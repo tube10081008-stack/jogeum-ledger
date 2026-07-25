@@ -3,7 +3,7 @@ import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring,
   addWishlist, removeWishlist, recordResist, addPledge, setAiMissions, toggleAiMission } from "./storage.js";
-import { categoryBreakdown, monthDiff, spendingFeatures } from "./insights.js";
+import { categoryBreakdown, monthDiff, spendingFeatures, shiftMonth } from "./insights.js";
 import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
@@ -38,18 +38,19 @@ const sheetEl = $("#sheet");
 const panelEl = $("#sheet-panel");
 
 let route = "home";
+let insightsMonth = null;              // 분석 탭에서 보고 있는 달('YYYY-MM', null이면 이번 달)
 const ROUTES = { home: homeView, history: historyView, planned: plannedView, insights: insightsView, quest: questView };
 
 function render() {
   const c = compute();
-  viewEl.innerHTML = ROUTES[route](c);
+  viewEl.innerHTML = ROUTES[route](c, { month: insightsMonth || c.thisMonth });
   document.querySelectorAll(".nav__btn").forEach((b) =>
     b.classList.toggle("active", b.dataset.route === route));
   viewEl.scrollTo?.(0, 0);
   window.scrollTo(0, 0);
 }
 
-function go(r) { route = r; render(); }
+function go(r) { if (r !== route) insightsMonth = null; route = r; render(); }
 
 /* ---------- 토스트 ---------- */
 let toastTimer;
@@ -676,6 +677,14 @@ viewEl.addEventListener("input", (e) => {
 });
 
 viewEl.addEventListener("click", (e) => {
+  // 분석 탭 월 이동 (다음 달은 이번 달까지만)
+  const ms = e.target.closest("[data-mshift]");
+  if (ms) {
+    const c = compute();
+    const next = shiftMonth(insightsMonth || c.thisMonth, +ms.dataset.mshift);
+    if (next <= c.thisMonth) { insightsMonth = next; render(); }
+    return;
+  }
   const edit = e.target.closest("[data-edit]");
   if (edit) {
     const c = compute();

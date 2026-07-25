@@ -6,7 +6,8 @@ import { getMascot } from "./storage.js";
 import { info as syncInfo } from "./sync.js";
 import { info as aiInfo } from "./ai.js";
 import { gameStats, levelTitle, weeklyQuests } from "./gamification.js";
-import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo, anomalies } from "./insights.js";
+import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo, anomalies,
+  breakdownByType, memoBreakdown, topTxns, monthSummary } from "./insights.js";
 import { parseISO, monthKey } from "./format.js";
 
 /* ---------- 홈 ---------- */
@@ -302,17 +303,23 @@ export function questView(c) {
 }
 
 /* ---------- 분석 ---------- */
-export function insightsView(c) {
-  const bd = categoryBreakdown(c.actual, c.thisMonth);
+// opts.month: 보고 있는 달('YYYY-MM'). 미지정이면 이번 달.
+export function insightsView(c, opts = {}) {
+  const mk = opts.month || c.thisMonth;
+  const isCur = mk === c.thisMonth;
+  const bd = breakdownByType(c.actual, mk, "expense");
+  const incBd = breakdownByType(c.actual, mk, "income");
+  const sum = monthSummary(c.actual, mk);
   const slices = bd.items.slice(0, PALETTE.length).map((it, i) => ({ ...it, color: PALETTE[i] }));
   const series = monthlySeries(c.actual, 6, c.today);
-  const maxExp = Math.max(1, ...series.map((s) => s.exp));
+  const maxBar = Math.max(1, ...series.map((s) => Math.max(s.inc, s.exp)));
   const diff = monthDiff(c.actual, c.thisMonth, c.today);
+  const [yy, mm] = mk.split("-");
 
   const donut = bd.total > 0
     ? `<div class="donut-wrap">
         ${donutSVG(slices)}
-        <div class="donut-mid"><div class="muted" style="font-size:.72rem">이번 달 지출</div>
+        <div class="donut-mid"><div class="muted" style="font-size:.72rem">${+mm}월 지출</div>
           <b style="font-size:1.05rem">${wonShort(bd.total)}</b></div>
        </div>
        <div class="legend">${slices.map((s) => {
@@ -320,10 +327,34 @@ export function insightsView(c) {
          return `<div class="legend__i"><span class="dot" style="background:${s.color}"></span>
            ${cat.icon} ${esc(cat.label)} <b>${Math.round(s.ratio * 100)}%</b></div>`;
        }).join("")}</div>`
-    : `<div class="muted center" style="padding:20px">이번 달 지출 기록이 쌓이면 분석이 보여요 📊</div>`;
+    : `<div class="muted center" style="padding:20px">이 달 지출 기록이 없어요 📊</div>`;
+
+  const rate = sum.inc > 0 ? Math.round(sum.rate * 100) : null;
 
   return `
   <h1 class="screen-title">분석</h1>
+
+  <div class="mnav">
+    <button class="mnav__b" data-mshift="-1" aria-label="이전 달">◀</button>
+    <div class="mnav__t">${yy}년 ${+mm}월${isCur ? ` <span class="mnav__now">이번 달</span>` : ""}</div>
+    <button class="mnav__b" data-mshift="1" ${isCur ? "disabled" : ""} aria-label="다음 달">▶</button>
+  </div>
+
+  <div class="card">
+    <div class="grid3">
+      <div class="stat"><div class="stat__v pos">${wonShort(sum.inc)}</div><div class="stat__l">수입</div></div>
+      <div class="stat"><div class="stat__v neg">${wonShort(sum.exp)}</div><div class="stat__l">지출</div></div>
+      <div class="stat"><div class="stat__v ${sum.net >= 0 ? "pos" : "neg"}">${wonShort(sum.net)}</div><div class="stat__l">순저축</div></div>
+    </div>
+    <div class="srate">
+      <div class="srate__h"><span class="muted">저축률</span>
+        <b class="${sum.net >= 0 ? "pos" : "neg"}">${rate === null ? "-" : rate + "%"}</b></div>
+      <div class="bar__track"><div class="bar__fill" style="width:${Math.max(0, Math.min(100, rate || 0))}%;background:var(--income)"></div></div>
+      <div class="muted" style="font-size:.74rem;margin-top:6px">
+        ${rate === null ? "수입을 기록하면 저축률이 나와요" : rate >= 30 ? "잘하고 있어요! 👏" : rate >= 0 ? "조금씩 더 모아봐요 🦕" : "이 달은 지출이 수입을 넘었어요"}
+      </div>
+    </div>
+  </div>
 
   ${aiInfo().key ? `<div class="card">
     <div class="card__title" style="margin-bottom:10px">🦕 AI 인사이트</div>
@@ -333,7 +364,7 @@ export function insightsView(c) {
     </div>
   </div>` : ""}
 
-  ${anomalyCard(c)}
+  ${isCur ? anomalyCard(c) : ""}
 
   <div class="card">
     <div class="card__title" style="margin-bottom:10px">카테고리별 지출</div>
@@ -341,25 +372,80 @@ export function insightsView(c) {
   </div>
 
   <div class="card">
-    <div class="card__title" style="margin-bottom:12px">최근 6개월 지출</div>
+    <div class="card__title" style="margin-bottom:10px">카테고리별 수입</div>
+    ${incBd.total > 0
+      ? barList(incBd.items, "income", "var(--income)") +
+        `<div class="muted" style="font-size:.76rem;margin-top:8px">${+mm}월 총수입 ${wonShort(incBd.total)}</div>`
+      : `<div class="muted center" style="padding:16px">이 달 수입 기록이 없어요 💰</div>`}
+  </div>
+
+  ${itemsCard(c, mk, "expense")}
+  ${itemsCard(c, mk, "income")}
+
+  <div class="card">
+    <div class="card__head"><span class="card__title">최근 6개월 수입·지출</span>
+      <span class="muted" style="font-size:.72rem">🟢수입 🔴지출</span></div>
     <div class="trend">${series.map((s) => `
       <div class="trend__col">
-        <div class="trend__bar" style="height:${Math.round((s.exp / maxExp) * 90)}px"
-          title="${won(s.exp)}"></div>
+        <div class="trend__pair">
+          <div class="trend__bar trend__bar--inc" style="height:${Math.round((s.inc / maxBar) * 80)}px" title="수입 ${won(s.inc)}"></div>
+          <div class="trend__bar" style="height:${Math.round((s.exp / maxBar) * 80)}px" title="지출 ${won(s.exp)}"></div>
+        </div>
         <div class="trend__lbl">${s.label}</div>
+        <div class="trend__net ${s.net >= 0 ? "pos" : "neg"}">${s.inc || s.exp ? wonShort(s.net) : ""}</div>
       </div>`).join("")}</div>
   </div>
 
   <div class="card">
-    <div class="card__title" style="margin-bottom:10px">${c.thisMonth.slice(5)}월 지출 달력</div>
-    ${heatmap(c)}
+    <div class="card__title" style="margin-bottom:10px">${+mm}월 지출 달력</div>
+    ${heatmap(c, mk)}
   </div>
 
-  ${simulatorCard(c)}
+  ${isCur ? simulatorCard(c) : ""}
 
-  ${monteCarloCard(c)}
+  ${isCur ? monteCarloCard(c) : ""}
 
-  ${reportCard(c, diff)}`;
+  ${isCur ? reportCard(c, diff) : ""}`;
+}
+
+// 카테고리 가로 막대 목록
+function barList(items, type, color) {
+  return items.map((i, idx) => {
+    const cat = catOf(type, i.cat);
+    return `<div class="bar">
+      <div class="bar__h"><span>${cat.icon} ${esc(cat.label)}</span>
+        <span><b>${wonShort(i.amt)}</b> <span class="muted" style="font-size:.74rem">${Math.round(i.ratio * 100)}%</span></span></div>
+      <div class="bar__track"><div class="bar__fill" style="width:${Math.round(i.ratio * 100)}%;background:${color || PALETTE[idx % PALETTE.length]}"></div></div>
+    </div>`;
+  }).join("");
+}
+
+// 항목(메모)별 집계 + 큰 거래 TOP — "게임에 얼마 썼지?"를 앱에서 바로 확인
+function itemsCard(c, mk, type) {
+  const memos = memoBreakdown(c.actual, mk, type, 6);
+  const tops = topTxns(c.actual, mk, type, 5);
+  if (!memos.length && !tops.length) return "";
+  const label = type === "expense" ? "지출" : "수입";
+  return `<div class="card">
+    <div class="card__title" style="margin-bottom:10px">항목별 ${label} TOP</div>
+    ${memos.length ? memos.map((m) => {
+      const cat = catOf(type, m.cat);
+      return `<div class="item">
+        <div class="item__l"><span class="item__n">${esc(m.memo)}</span>
+          <span class="muted" style="font-size:.74rem">${cat.icon} ${esc(cat.label)} · ${m.count}건</span></div>
+        <b class="${type === "income" ? "pos" : "neg"}">${wonShort(m.amt)}</b>
+      </div>`;
+    }).join("") : `<div class="muted" style="font-size:.8rem">메모를 남기면 항목별로 묶어서 보여드려요</div>`}
+    ${tops.length ? `<div class="item__sub muted">가장 큰 ${label}</div>
+      ${tops.map((t) => {
+        const cat = catOf(type, t.category);
+        return `<div class="item item--sm" data-edit="${t.id}">
+          <div class="item__l"><span>${cat.icon} ${esc(t.memo || cat.label)}</span>
+            <span class="muted" style="font-size:.72rem">${fmtDate(t.date)}</span></div>
+          <b class="${type === "income" ? "pos" : "neg"}">${wonShort(t.amount)}</b>
+        </div>`;
+      }).join("")}` : ""}
+  </div>`;
 }
 
 // 8) 이상 지출 감지 (순수 연산)
@@ -427,16 +513,16 @@ function simulatorCard(c) {
   </div>`;
 }
 
-function heatmap(c) {
-  const map = dailySpend(c.actual, c.thisMonth);
+function heatmap(c, mk = c.thisMonth) {
+  const map = dailySpend(c.actual, mk);
   const max = Math.max(1, ...Object.values(map));
-  const d = parseISO(c.thisMonth + "-01");
+  const d = parseISO(mk + "-01");
   const firstDow = d.getDay();
   const days = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < firstDow; i++) cells.push(`<div class="hm-cell hm-empty"></div>`);
   for (let day = 1; day <= days; day++) {
-    const iso = `${c.thisMonth}-${String(day).padStart(2, "0")}`;
+    const iso = `${mk}-${String(day).padStart(2, "0")}`;
     const v = map[iso] || 0;
     const lvl = v === 0 ? 0 : Math.ceil((v / max) * 4);
     cells.push(`<div class="hm-cell hm-${lvl}" title="${fmtDate(iso)} · ${won(v)}">${day}</div>`);

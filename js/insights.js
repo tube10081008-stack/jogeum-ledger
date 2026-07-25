@@ -1,11 +1,11 @@
 // 분석 화면용 파생 계산
 import { monthKey } from "./format.js";
 
-// 이번 달(또는 지정 월) 카테고리별 지출 분해
-export function categoryBreakdown(actual, mk) {
+// 지정 월의 유형별(지출/수입) 카테고리 분해
+export function breakdownByType(actual, mk, type = "expense") {
   const by = {};
   for (const t of actual) {
-    if (t.type !== "expense" || monthKey(t.date) !== mk) continue;
+    if (t.type !== type || monthKey(t.date) !== mk) continue;
     by[t.category] = (by[t.category] || 0) + t.amount;
   }
   const total = Object.values(by).reduce((s, v) => s + v, 0);
@@ -13,6 +13,48 @@ export function categoryBreakdown(actual, mk) {
     .map(([cat, amt]) => ({ cat, amt, ratio: total > 0 ? amt / total : 0 }))
     .sort((a, b) => b.amt - a.amt);
   return { items, total };
+}
+
+// 이번 달(또는 지정 월) 카테고리별 지출 분해
+export function categoryBreakdown(actual, mk) {
+  return breakdownByType(actual, mk, "expense");
+}
+
+// 항목(메모)별 집계 — 같은 메모끼리 묶어 합계·건수. "게임 얼마 썼어?" 같은 질문의 근거가 된다.
+export function memoBreakdown(actual, mk, type = "expense", n = 10) {
+  const by = {};
+  for (const t of actual) {
+    if (t.type !== type || monthKey(t.date) !== mk) continue;
+    const key = String(t.memo || "").trim().toLowerCase().replace(/\s+/g, " ");
+    if (!key) continue;
+    const e = (by[key] = by[key] || { memo: String(t.memo).trim().slice(0, 20), amt: 0, count: 0, cat: t.category });
+    e.amt += t.amount;
+    e.count++;
+  }
+  return Object.values(by).sort((a, b) => b.amt - a.amt).slice(0, n);
+}
+
+// 금액이 큰 거래 TOP n
+export function topTxns(actual, mk, type = "expense", n = 5) {
+  return actual.filter((t) => t.type === type && monthKey(t.date) === mk)
+    .sort((a, b) => b.amount - a.amount).slice(0, n);
+}
+
+// 'YYYY-MM'을 delta개월 이동
+export function shiftMonth(mk, delta) {
+  const [y, m] = mk.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// 지정 월 요약: 수입·지출·순저축·저축률
+export function monthSummary(actual, mk) {
+  let inc = 0, exp = 0;
+  for (const t of actual) {
+    if (monthKey(t.date) !== mk) continue;
+    if (t.type === "income") inc += t.amount; else exp += t.amount;
+  }
+  return { inc, exp, net: inc - exp, rate: inc > 0 ? (inc - exp) / inc : 0 };
 }
 
 // 최근 n개월 수입/지출/순액 시계열 (과거→현재)

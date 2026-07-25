@@ -2,6 +2,7 @@
 // 키/모델은 이 기기 localStorage에만 저장(저장소·공개 URL 미포함).
 // 비용은 사용자 키로 청구됨. 1인용 개인 사용 전제.
 import { CATEGORIES, catOf } from "./storage.js";
+import { breakdownByType, memoBreakdown, monthSummary, shiftMonth } from "./insights.js";
 
 const AKEY = "jogeum.ai.v1";       // { key, model }
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -122,7 +123,21 @@ function txnLines(c, limit = 600) {
   return { lines, more: Math.max(0, rows.length - lines.length) };
 }
 
-// 3) AI 코치 — 재정 요약 + 거래 내역 컨텍스트 + 대화
+// 월별 사전 집계 — 모델이 원본을 일일이 더하지 않아도 정확한 합계를 답할 수 있게 미리 계산해 넘긴다.
+function monthAggregate(c, mk) {
+  const s = monthSummary(c.actual, mk);
+  const cats = (type) => breakdownByType(c.actual, mk, type).items
+    .map((i) => ({ 분류: catOf(type, i.cat).label, 금액: Math.round(i.amt) }));
+  const memos = (type, n) => memoBreakdown(c.actual, mk, type, n)
+    .map((m) => ({ 항목: m.memo, 분류: catOf(type, m.cat).label, 금액: Math.round(m.amt), 건수: m.count }));
+  return {
+    월: mk, 수입합계: Math.round(s.inc), 지출합계: Math.round(s.exp), 순저축: Math.round(s.net),
+    지출_분류별: cats("expense"), 수입_분류별: cats("income"),
+    지출_항목별: memos("expense", 20), 수입_항목별: memos("income", 15),
+  };
+}
+
+// 3) AI 코치 — 재정 요약 + 사전 집계 + 거래 내역 컨텍스트 + 대화
 export async function coach(history, c) {
   const ctx = {
     오늘: c.today, 올해목표: c.goal, 현재저축: Math.round(c.saved), 진행률: Math.round(c.progress * 100) + "%",
@@ -131,12 +146,19 @@ export async function coach(history, c) {
     무지출연속: c.noSpendStreak, 남은개월: c.monthsLeft,
     봉투예산: (c.envelopes || []).slice(0, 3).map((e) => ({ 분류: catOf("expense", e.cat).label, 한도: e.limit, 쓴돈: Math.round(e.spent) })),
   };
+  const agg = { 이번달: monthAggregate(c, c.thisMonth), 지난달: monthAggregate(c, shiftMonth(c.thisMonth, -1)) };
   const { lines, more } = txnLines(c);
   const sys = `너는 '조구미'라는 귀여운 아기공룡 가계부 코치야. 한국어로 친근하고 간결하게, 이모지 약간 🦕.
-아래 '재정요약'과 '거래내역'에 근거해 구체적으로 답해. 숫자는 만원 단위로 읽기 쉽게.
-사용자가 특정 항목(메모/상호/분류/기간)의 합계·건수를 물으면, 거래내역에서 직접 해당 항목을 찾아 더해서 정확한 금액과 건수로 답해줘. 필요하면 짧은 목록으로 정리해도 돼.
-거래내역에 없는 정보만 "기록이 없어 모르겠어"라고 말해.
+아래 '재정요약'·'월별집계'·'거래내역'에 근거해 구체적으로 답해. 숫자는 만원 단위로 읽기 쉽게.
+
+[중요] 지출과 수입 모두 아래에 다 들어있어. 특정 항목의 합계를 물으면 절대 "데이터가 나눠져 있지 않아 모르겠다"고 하지 마.
+- 합계·건수 질문은 '월별집계'의 분류별/항목별 숫자를 그대로 쓰는 걸 최우선으로 해. 거기 없으면 '거래내역'에서 직접 찾아 더해.
+- 사용자가 쓰는 말이 분류 이름과 달라도 뜻이 가까운 분류로 연결해. (예: 게임·영화·취미·넷플릭스 → 여가 / 커피·디저트 → 카페/간식 / 택시·지하철 → 교통 / 세차·알바 → 부수입)
+- 항목(메모)과 분류를 함께 확인하고, 어떤 근거로 계산했는지 짧게 덧붙여. (예: "여가 분류 3건 합계")
+- 정말로 기록 자체가 없을 때만 "그건 기록이 없어"라고 말하고, 대신 가장 가까운 분류의 금액을 알려줘.
+
 재정요약(JSON): ${JSON.stringify(ctx)}
+월별집계(JSON): ${JSON.stringify(agg)}
 거래내역(형식: "날짜 유형 금액(원) 분류 메모", 최근순${more ? `, 이 외 오래된 ${more}건 더 있음` : ""}):
 ${lines.join("\n")}`;
   // 대화 history: [{role:'user'|'model', text}]

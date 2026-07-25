@@ -193,6 +193,40 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .trend__bar{width:70%;min-height:3px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--mint),var(--mint-d))}
 .trend__lbl{font-size:.7rem;color:var(--ink-soft);margin-top:5px}
 
+/* 분석: 수입·지출 동시 막대 */
+.trend{height:130px}
+.trend__pair{display:flex;align-items:flex-end;justify-content:center;gap:3px;width:100%;height:100%}
+.trend__pair .trend__bar{width:42%;background:linear-gradient(180deg,#f0a0a0,var(--expense))}
+.trend__pair .trend__bar--inc{background:linear-gradient(180deg,#5fc79a,var(--income))}
+.trend__net{font-size:.64rem;margin-top:2px}
+
+/* 분석: 월 이동 */
+.mnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px}
+.mnav__b{border:1px solid var(--line);background:var(--card);color:var(--ink);
+  width:40px;height:36px;border-radius:12px;font-size:.9rem;cursor:pointer}
+.mnav__b:disabled{opacity:.35;cursor:default}
+.mnav__t{font-weight:800;font-size:1rem}
+.mnav__now{font-size:.68rem;font-weight:600;color:var(--mint-d);background:#eafaf0;
+  border-radius:999px;padding:2px 8px;margin-left:4px;vertical-align:middle}
+
+/* 분석: 가로 막대 목록 */
+.bar{margin-bottom:10px}
+.bar__h{display:flex;justify-content:space-between;align-items:baseline;font-size:.86rem;margin-bottom:5px}
+.bar__track{height:8px;border-radius:999px;background:#eef1ee;overflow:hidden}
+.bar__fill{height:100%;border-radius:999px;transition:width .3s}
+.srate{margin-top:12px}
+.srate__h{display:flex;justify-content:space-between;align-items:baseline;font-size:.86rem;margin-bottom:6px}
+
+/* 분석: 항목별 목록 */
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:9px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item__l{display:flex;flex-direction:column;gap:2px;min-width:0}
+.item__n{font-weight:700;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item--sm{font-size:.84rem}
+.item--sm .item__l{font-size:.84rem}
+.item__sub{font-size:.74rem;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+
 /* 분석: 히트맵 */
 .hm-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .hm-dow{text-align:center;font-size:.66rem;color:var(--ink-soft);padding-bottom:2px}
