@@ -153,20 +153,39 @@ export async function syncNow() {
   try {
     const remote = await remoteData();
     const localT = getUpdatedAt();
-    if (remote && (remote.updatedAt || 0) > localT) {
-      applyRemote(remote);    // 원격이 더 최신 → 받아씀
+    const localCount = (load().txns || []).length;
+    const rCount = remote && Array.isArray(remote.txns) ? remote.txns.length : 0;
+    // 원격이 더 최신이거나, 로컬이 비었는데 원격에 기록이 있으면 받아씀.
+    // 후자는 기기 저장소 초기화 사고에서 빈 데이터가 클라우드를 덮어쓰는 것을 막는다.
+    if (remote && ((remote.updatedAt || 0) > localT || (localCount === 0 && rCount > 0))) {
+      applyRemote(remote);
     } else {
-      await pushNow();        // 로컬이 최신(또는 원격 없음) → 올림
+      await pushNow();        // 로컬이 최신(또는 원격 없음/빈 상태) → 올림
     }
     setStatus("idle");
     return true;
   } catch (e) { setStatus("error"); throw e; }
 }
 
+// 안전장치: 로컬이 비었는데 원격에 기록이 있으면 절대 업로드하지 않는다.
+// (기기 저장소가 초기화/삭제된 상황에서 빈 데이터가 클라우드 백업을 덮어쓰는 사고 방지)
+// 원격에 기록이 있으면 오히려 그걸 복원한다. true를 반환하면 업로드를 건너뛴다.
+async function blockEmptyOverwrite() {
+  if ((load().txns || []).length > 0) return false;      // 로컬에 기록 있음 → 정상 업로드
+  let remote = null;
+  try { remote = await remoteData(); } catch { return true; }  // 확인 불가 → 안전하게 업로드 보류
+  const rCount = remote && Array.isArray(remote.txns) ? remote.txns.length : 0;
+  if (rCount > 0) { applyRemote(remote); return true; }  // 원격 기록 복원
+  return false;                                          // 양쪽 다 비어있음 → 업로드해도 무해
+}
+
 async function pushSafe() {
   if (!isConfigured()) return;
   setStatus("syncing");
-  try { await pushNow(); setStatus("idle"); } catch { setStatus("error"); }
+  try {
+    if (await blockEmptyOverwrite()) { setStatus("idle"); return; }
+    await pushNow(); setStatus("idle");
+  } catch { setStatus("error"); }
 }
 
 // 로컬 변경 → 1.5초 디바운스 후 자동 업로드
