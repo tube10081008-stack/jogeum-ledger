@@ -11,6 +11,15 @@ export function compute() {
   const actual = txns.filter((t) => !t.planned);
   const planned = txns.filter((t) => t.planned);
 
+  // 저금통 봉인 — 저금통에 넣은 돈은 '임자가 정해진 돈'으로 보고 쓸 수 있는 돈에서 뺀다
+  const jarList = jars || [];
+  const jarLocked = jarList.reduce((s, j) => s + (j.saved || 0), 0);
+  const jarThisMonth = jarList.reduce((s, j) => s +
+    (j.log || []).filter((e) => monthKey(e.date) === thisMonth).reduce((a, e) => a + e.amount, 0), 0);
+  const jarTarget = jarList.reduce((s, j) => s + (j.target || 0), 0);
+  const jarDone = jarList.filter((j) => j.target > 0 && (j.saved || 0) >= j.target).length;
+  const jarDeposits = jarList.reduce((s, j) => s + (j.log || []).filter((e) => e.amount > 0).length, 0);
+
   // 올해 실현 수입/지출
   const yIn = sum(actual, year, "income");
   const yOut = sum(actual, year, "expense");
@@ -31,7 +40,8 @@ export function compute() {
     .sort((a, b) => a.date.localeCompare(b.date));
   const plInRaw = planned.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const plOutRaw = planned.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-  const projected = saved + plInRaw - plOutRaw;             // 계획 반영 연말 예상 잔액
+  // 계획 반영 연말 예상 잔액 — 봉인된 저금통 금액은 자유롭게 쓸 수 없으므로 제외
+  const projected = saved + plInRaw - plOutRaw - jarLocked;
 
   // 기록 습관 / 연속일
   const loggedDays = [...new Set(actual.map((t) => t.date))].sort();
@@ -73,7 +83,8 @@ export function compute() {
   const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   const daysLeftInMonth = daysInMonth - d.getDate() + 1;     // 오늘 포함
   const monthlyBudget = settings.monthlyBudget || 0;
-  const budgetLeft = monthlyBudget > 0 ? monthlyBudget - mOut : 0;
+  // 이번 달 저금통에 넣은 돈도 예산에서 빠져나간 것으로 본다(봉인)
+  const budgetLeft = monthlyBudget > 0 ? monthlyBudget - mOut - jarThisMonth : 0;
   const todayAllowance = monthlyBudget > 0 ? Math.max(0, budgetLeft) / daysLeftInMonth : 0;
 
   // 카테고리별 봉투 사용량 (이번 달)
@@ -103,7 +114,8 @@ export function compute() {
   const pledgeSuccessCount = pledgeList.filter((d) => d < today && !expenseDays.has(d)).length;
 
   return {
-    settings, txns, actual, planned, jars: jars || [], recurring: recurring || [],
+    settings, txns, actual, planned, jars: jarList, recurring: recurring || [],
+    jarLocked, jarThisMonth, jarTarget, jarDone, jarDeposits,
     pledgedToday, todayHasExpense, pledgeSuccessCount, aiMissions: aiMissions || [],
     wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount, resistedLog: resistedList,
     year, today, thisMonth,

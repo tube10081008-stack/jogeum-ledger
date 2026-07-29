@@ -67,6 +67,8 @@ export function homeView(c) {
         ${c.projected >= c.goal ? "목표 달성 가능 ✅" : wonShort(c.goal - c.projected) + " 부족"}</div>
         <div class="stat__l">목표 대비</div></div>
     </div>
+    ${c.jarLocked > 0 ? `<div class="muted" style="font-size:.76rem;margin-top:8px">
+      🔒 저금통 ${wonShort(c.jarLocked)}을 뺀, 자유롭게 쓸 수 있는 금액이에요</div>` : ""}
   </div>
 
   ${jarsCard(c)}
@@ -117,13 +119,14 @@ function allowanceCard(c) {
     </div>`;
   }
   const over = c.budgetLeft < 0;
-  const usedPct = Math.min(100, Math.round((c.mOut / c.monthlyBudget) * 100));
+  const jarM = c.jarThisMonth || 0;
+  const usedPct = Math.min(100, Math.round(((c.mOut + jarM) / c.monthlyBudget) * 100));
   return `<div class="card center allow ${over ? "allow--over" : ""}">
     <div class="card__head" style="justify-content:center"><span class="card__title">오늘 쓸 수 있는 돈</span></div>
     <div class="allow__big ${over ? "neg" : ""}">${over ? "예산 초과!" : won(c.todayAllowance)}</div>
     <div class="bar"><div class="bar__fill ${over ? "over" : ""}" style="width:${usedPct}%"></div></div>
     <div class="muted" style="font-size:.78rem;margin-top:6px">
-      이번 달 예산 ${wonShort(c.monthlyBudget)} 중 ${wonShort(c.mOut)} 사용 · 남은 ${c.daysLeftInMonth}일
+      이번 달 예산 ${wonShort(c.monthlyBudget)} 중 ${wonShort(c.mOut)} 사용${jarM > 0 ? ` · 🔒 저금통 ${wonShort(jarM)}` : ""} · 남은 ${c.daysLeftInMonth}일
     </div>
   </div>`;
 }
@@ -145,7 +148,10 @@ function jarsCard(c) {
   return `<div class="card">
     <div class="card__head"><span class="card__title">저금통 (추가 목표)</span>
       <button class="link" data-act="add-jar">＋ 추가</button></div>
-    ${jars.length ? rows : `<div class="muted" style="font-size:.82rem">여행·비상금 같은 목표를 만들어 따로 모아보세요 🐖</div>`}
+    ${jars.length ? `<div class="jarlock">
+        <span>🔒 봉인된 돈 <b>${won(c.jarLocked)}</b></span>
+        <span class="muted">쓸 수 있는 돈에서 제외</span>
+      </div>${rows}` : `<div class="muted" style="font-size:.82rem">여행·비상금 같은 목표를 만들어 따로 모아보세요 🐖</div>`}
   </div>`;
 }
 

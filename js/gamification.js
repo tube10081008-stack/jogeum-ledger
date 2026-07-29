@@ -22,10 +22,13 @@ export function weeklyQuests(c) {
   const noSpend = last7.filter((d) => d <= c.today && !expDays.has(d)).length;
   const records = inWeek.length;
   const resistedWeek = (c.resistedLog || []).filter((r) => set.has(r.date)).length;
+  const jarWeek = (c.jars || []).reduce((s, j) => s +
+    (j.log || []).filter((e) => set.has(e.date) && e.amount > 0).length, 0);
   const q = [
     { icon: "🚯", label: "무지출 2일 만들기", cur: noSpend, target: 2 },
     { icon: "📝", label: "이번 주 7건 기록", cur: records, target: 7 },
     { icon: "🌊", label: "충동 1번 참기", cur: resistedWeek, target: 1 },
+    { icon: "🐖", label: "저금통에 1번 넣기", cur: jarWeek, target: 1 },
   ].map((x) => ({ ...x, cur: Math.min(x.cur, x.target), done: x.cur >= x.target }));
   return q;
 }
@@ -43,7 +46,10 @@ export function gameStats(c) {
     (c.bestNoSpend || 0) * 8 +        // 무지출 챌린지
     (c.resistedCount || 0) * 30 +     // 충동 극복
     questsDone * 40 +                 // 주간 도전 과제
-    (c.pledgeSuccessCount || 0) * 25; // 무지출 서약 지킴
+    (c.pledgeSuccessCount || 0) * 25 +      // 무지출 서약 지킴
+    (c.jarDeposits || 0) * 15 +             // 저금통에 넣은 횟수
+    Math.floor((c.jarLocked || 0) / 100000) * 20 +  // 봉인 10만원당
+    (c.jarDone || 0) * 150;                 // 저금통 완성
 
   let level = 1, cur = 0, next = LEVELS[1];
   for (let i = 0; i < LEVELS.length; i++) {
@@ -66,6 +72,10 @@ export function gameStats(c) {
     { id: "rs1", icon: "🌊", label: "충동 극복", got: (c.resistedCount || 0) >= 1 },
     { id: "rs10", icon: "🛡️", label: "충동왕", got: (c.resistedCount || 0) >= 10 },
     { id: "pl1", icon: "🤝", label: "약속 지킴", got: (c.pledgeSuccessCount || 0) >= 1 },
+    { id: "jar1", icon: "🐖", label: "첫 저금통", got: (c.jars || []).length >= 1 },
+    { id: "jarlock", icon: "🔒", label: "봉인 10만", got: (c.jarLocked || 0) >= 100000 },
+    { id: "jarhalf", icon: "🎯", label: "저금통 반쯤", got: (c.jars || []).some((j) => j.target > 0 && (j.saved || 0) / j.target >= 0.5) },
+    { id: "jarfull", icon: "🏝️", label: "저금통 완성", got: (c.jarDone || 0) >= 1 },
   ];
 
   return { xp, level, lvlPct, next, cur, badges, reachedMs, monthsUnderBudget };

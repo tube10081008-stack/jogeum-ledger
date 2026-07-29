@@ -49,6 +49,8 @@ function normalize(c) {
   c.txns = Array.isArray(c.txns) ? c.txns : [];
   c.mascot = c.mascot && typeof c.mascot === "object" ? c.mascot : {};
   c.jars = Array.isArray(c.jars) ? c.jars : [];
+  // 구버전 저금통엔 입금 기록(log)이 없다 — 빈 배열로 보강(과거 입금은 날짜 불명이라 이번 달로 치지 않음)
+  c.jars.forEach((j) => { if (!Array.isArray(j.log)) j.log = []; });
   c.recurring = Array.isArray(c.recurring) ? c.recurring : [];
   c.wishlist = Array.isArray(c.wishlist) ? c.wishlist : [];
   c.resisted = Array.isArray(c.resisted) ? c.resisted : [];
@@ -134,14 +136,23 @@ export function setBudget(catId, amount) {
 }
 
 /* ---------- 저금통(추가 목표) ---------- */
-export function addJar(j) { load(); cache.jars.push({ id: crypto.randomUUID(), saved: 0, ...j }); save(); }
+export function addJar(j) { load(); cache.jars.push({ id: crypto.randomUUID(), saved: 0, log: [], ...j }); save(); }
 export function updateJar(id, patch) {
   load(); const j = cache.jars.find((x) => x.id === id);
   if (j) { Object.assign(j, patch); save(); }
 }
+// 넣기/빼기 — 날짜별 기록(log)을 남겨 '이번 달 봉인액' 계산에 쓴다
 export function depositJar(id, amount) {
   load(); const j = cache.jars.find((x) => x.id === id);
-  if (j) { j.saved = Math.max(0, (j.saved || 0) + amount); save(); }
+  if (!j) return;
+  const before = j.saved || 0;
+  j.saved = Math.max(0, before + amount);
+  const delta = j.saved - before;                 // 0 미만 방지가 반영된 실제 변화량
+  if (delta !== 0) {
+    if (!Array.isArray(j.log)) j.log = [];
+    j.log.push({ date: new Date().toISOString().slice(0, 10), amount: delta });
+  }
+  save();
 }
 export function removeJar(id) { load(); cache.jars = cache.jars.filter((x) => x.id !== id); save(); }
 

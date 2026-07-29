@@ -145,6 +145,11 @@ export async function coach(history, c) {
     월지출예산: c.monthlyBudget, 오늘쓸수있는돈: Math.round(c.todayAllowance),
     무지출연속: c.noSpendStreak, 남은개월: c.monthsLeft,
     봉투예산: (c.envelopes || []).slice(0, 3).map((e) => ({ 분류: catOf("expense", e.cat).label, 한도: e.limit, 쓴돈: Math.round(e.spent) })),
+    저금통: {
+      봉인총액: Math.round(c.jarLocked || 0), 이번달넣은돈: Math.round(c.jarThisMonth || 0), 완성한개수: c.jarDone || 0,
+      목록: (c.jars || []).map((j) => ({ 이름: j.name, 모은돈: Math.round(j.saved || 0), 목표: j.target || 0 })),
+      설명: "저금통에 넣은 돈은 봉인되어 '오늘 쓸 수 있는 돈'과 '연말 예상 잔액'에서 이미 빠져 있음",
+    },
   };
   const agg = { 이번달: monthAggregate(c, c.thisMonth), 지난달: monthAggregate(c, shiftMonth(c.thisMonth, -1)) };
   const { lines, more } = txnLines(c);
