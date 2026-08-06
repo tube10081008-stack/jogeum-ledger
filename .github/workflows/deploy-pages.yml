@@ -1,12 +1,12 @@
 name: Deploy Ledger PWA to GitHub Pages
 
-# 이 저장소는 구 모노레포(Urge-surfing)의 ledger/ 폴더를 독립 저장소로 분리한 것입니다.
-# 콘텐츠가 저장소 루트에 있으므로 업로드 경로를 'ledger' → '.' 로 조정했습니다.
-# (한 번만) 저장소 Settings → Pages → Source 를 "GitHub Actions"로 설정해야 동작.
+# 무빌드 PWA — 앱 파일을 그대로 GitHub Pages로 발행한다.
+# 배포 전에 반드시 테스트를 통과해야 한다(특히 동기화 안전장치: 되돌아가면 사용자 데이터가 날아감).
 on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 의존성 설치 (테스트 전용)
+        run: npm install --no-audit --no-fund
+      - name: 브라우저 설치
+        run: npx playwright install --with-deps chromium
+      - name: 테스트 실행
+        run: npm test
+
   deploy:
+    # 테스트가 통과한 main push만 배포
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -31,10 +48,16 @@ jobs:
         with:
           # Pages가 아직 비활성이면 워크플로우가 직접 활성화(수동 설정 불필요).
           enablement: true
-      - name: Upload repository root as Pages artifact
+      - name: 배포할 앱 파일만 모으기
+        # 테스트·설정 파일이 공개 사이트에 올라가지 않도록 앱 자산만 복사한다.
+        run: |
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js _site/
+          cp -r css js icons _site/
+      - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

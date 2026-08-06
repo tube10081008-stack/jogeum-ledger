@@ -23,20 +23,34 @@
 
 ## 로컬 실행
 ```bash
-cd ledger
 python3 -m http.server 8080
 # → http://localhost:8080
 ```
 
+## 테스트
+커밋 전에 항상 실행합니다. 배포 워크플로우도 통과해야만 발행됩니다.
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
+
+`tests/` 안에 실제 브라우저를 띄워 앱을 조작하는 스모크 테스트가 들어 있습니다.
+특히 **`sync-safety.test.mjs`는 지우지 마세요** — 되돌아가면 사용자의 클라우드 백업이
+빈 데이터로 덮어써지는, 실제로 데이터 손실이 있었던 경로를 지키는 테스트입니다.
+
 ## 폰에 설치 (배포 후)
 1. (최초 1회) 저장소 **Settings → Pages → Source = GitHub Actions**
-2. `ledger/**` push → Actions 완료 후 발행 URL 접속
-   - 예: `https://tube10081008-stack.github.io/Urge-surfing/`
+2. `main`에 push → 테스트 통과 후 자동 발행
+   - <https://tube10081008-stack.github.io/jogeum-ledger/>
 3. 브라우저 메뉴 → **홈 화면에 추가** → 앱처럼 실행
+
+업데이트는 앱을 새로고침하면 됩니다. 코드를 고치면 `sw.js`의 `CACHE` 버전을 올려야
+서비스워커가 새 파일을 받아갑니다.
 
 ## 구조
 ```
-ledger/
   index.html              앱 셸 (네비/FAB/시트)
   css/style.css           디자인 토큰 + 컴포넌트
   js/
@@ -45,8 +59,12 @@ ledger/
     state.js              파생 계산(진행률·페이스·연속일·예측)
     gamification.js       XP·레벨·뱃지
     mascot.js             마스코트 SVG + 기분 로직
+    insights.js           분석(도넛·추이·히트맵·이상지출·몬테카를로)
+    sync.js               GitHub Gist 백업/복원
+    ai.js                 Gemini 클라이언트(선택 기능)
     views.js              화면 렌더
-    app.js               라우팅·이벤트·PWA 등록
+    app.js                라우팅·이벤트·PWA 등록
   manifest.webmanifest    PWA 매니페스트
   sw.js                   오프라인 캐시(서비스워커)
+  tests/                  브라우저 스모크 테스트 (배포 전 자동 실행)
 ```
