@@ -5,6 +5,9 @@ import { todayISO, monthKey, yearKey, daysBetween, toISO } from "./format.js";
 export function compute() {
   const { settings, txns, jars, recurring, wishlist, resisted, pledges, aiMissions } = load();
   const year = String(settings.year);
+  // 해가 바뀌면 목표 연도가 낡은 상태가 된다 (앱을 처음 켠 해에 고정되므로)
+  const currentYear = new Date().getFullYear();
+  const needsYearRollover = !!settings.onboarded && Number(settings.year) < currentYear;
   const today = todayISO();
   const thisMonth = monthKey(today);
 
@@ -48,7 +51,8 @@ export function compute() {
   const streak = currentStreak(loggedDays, today);
 
   // 남은 정보
-  const daysLeftInYear = daysBetween(today, `${year}-12-31`);
+  // 연도 전환 전이면 음수가 될 수 있으므로 0으로 막는다
+  const daysLeftInYear = Math.max(0, daysBetween(today, `${year}-12-31`));
   const remainingToGoal = Math.max(0, goal - saved);
 
   // 무지출 챌린지: 지출이 0원인 날
@@ -118,7 +122,7 @@ export function compute() {
     jarLocked, jarThisMonth, jarTarget, jarDone, jarDeposits,
     pledgedToday, todayHasExpense, pledgeSuccessCount, aiMissions: aiMissions || [],
     wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount, resistedLog: resistedList,
-    year, today, thisMonth,
+    year, currentYear, needsYearRollover, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,
     mIn, mOut, mNet, monthlyTarget, monthPace,
     upcoming, plInRaw, plOutRaw, projected,

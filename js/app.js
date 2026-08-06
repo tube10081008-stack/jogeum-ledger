@@ -2,9 +2,9 @@
 import { compute } from "./state.js";
 import { addTxn, updateTxn, removeTxn, setSettings, exportJSON, importJSON, resetAll, setMascot, clearMascot,
   setBudget, addJar, depositJar, removeJar, addRecurring, removeRecurring, toggleRecurring, materializeRecurring,
-  addWishlist, removeWishlist, recordResist, addPledge, setAiMissions, toggleAiMission } from "./storage.js";
+  addWishlist, removeWishlist, recordResist, addPledge, setAiMissions, toggleAiMission, rollOverYear } from "./storage.js";
 import { categoryBreakdown, monthDiff, spendingFeatures, shiftMonth } from "./insights.js";
-import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML } from "./views.js";
+import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML, yearRolloverSheet } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
 import { ensurePersisted, markExported, snoozeNudge } from "./durability.js";
@@ -365,6 +365,29 @@ function openSettings({ onboarding = false } = {}) {
       toast("기본 캐릭터로 되돌렸어요");
       openSettings(); render();
     }));
+}
+
+/* ---------- 새해 전환 시트 ---------- */
+function openYearRollover() {
+  const c = compute();
+  openSheet(yearRolloverSheet(c));
+  const goal = $("#ry-goal", panelEl);
+  goal?.addEventListener("input", () => {
+    const n = numFrom(goal.value);
+    goal.value = n ? n.toLocaleString("ko-KR") : "";
+  });
+  $("#ry-save", panelEl)?.addEventListener("click", () => {
+    const g = numFrom(goal?.value);
+    if (g <= 0) return toast("올해 목표 금액을 입력해주세요");
+    const carry = $("#ry-carry", panelEl)?.checked;
+    rollOverYear({
+      year: c.currentYear, yearGoal: g,
+      startBalance: carry ? Math.round(c.saved) : 0,
+      closing: c.saved,
+    });
+    toast(`${c.currentYear}년 시작! 올해도 조금씩 모아봐요 🌱`);
+    closeSheet(); render();
+  });
 }
 
 /* ---------- 저금통 시트 ---------- */
@@ -766,7 +789,10 @@ sync.onStatus(updateSyncBadge);
 
 /* ---------- 시작 ---------- */
 function maybeOnboard() {
-  if (!compute().settings.onboarded) openSettings({ onboarding: true });
+  const c = compute();
+  if (!c.settings.onboarded) { openSettings({ onboarding: true }); return; }
+  // 해가 바뀌었으면 새 목표를 받는다 (지난해 기록은 유지)
+  if (c.needsYearRollover) openYearRollover();
 }
 
 // 초기 접속 무지출 광고 팝업 (하루 1회, 기기 로컬 상태)

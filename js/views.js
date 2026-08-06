@@ -702,6 +702,46 @@ export function addSheet({ type = "expense", planned = false, edit = null } = {}
   ${edit ? `<button class="btn danger" id="f-del" style="margin-top:10px">삭제</button>` : ""}`;
 }
 
+/* ---------- 바텀시트: 새해 전환 ---------- */
+// 해가 바뀌면 지난해를 마무리하고 새 목표를 받는다. 지난해 기록은 그대로 남는다.
+export function yearRolloverSheet(c) {
+  const prevYear = c.settings.year;
+  const closing = c.saved;
+  const achieved = c.goal > 0 ? Math.round((closing / c.goal) * 100) : null;
+  return `
+  <div class="sheet__title">🎉 ${c.currentYear}년이 시작됐어요</div>
+  <div class="center" style="margin-bottom:10px">${mascot(achieved !== null && achieved >= 100 ? "celebrate" : "happy", 96)}</div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card__title" style="margin-bottom:8px">${prevYear}년 마무리</div>
+    <div class="grid2">
+      <div class="stat"><div class="stat__v ${closing >= 0 ? "pos" : "neg"}">${wonShort(closing)}</div>
+        <div class="stat__l">모은 금액</div></div>
+      <div class="stat"><div class="stat__v">${achieved === null ? "-" : achieved + "%"}</div>
+        <div class="stat__l">목표 달성</div></div>
+    </div>
+    <div class="muted" style="font-size:.78rem;margin-top:8px">
+      ${prevYear}년 기록은 지워지지 않아요. 분석 탭에서 언제든 다시 볼 수 있어요.
+    </div>
+  </div>
+
+  <div class="field">
+    <label>${c.currentYear}년 저축 목표</label>
+    <input class="input amount" id="ry-goal" inputmode="numeric" placeholder="0"
+      value="${c.goal ? c.goal.toLocaleString("ko-KR") : ""}" />
+  </div>
+
+  <label style="display:flex;align-items:center;gap:8px;margin:10px 0 4px;font-size:.9rem">
+    <input type="checkbox" id="ry-carry" checked style="width:18px;height:18px;flex-shrink:0" />
+    <span>지금까지 모은 <b>${wonShort(closing)}</b>을 올해 시작 잔액으로 이어받기</span>
+  </label>
+  <div class="muted" style="font-size:.76rem;margin-bottom:14px">
+    끄면 올해 저축을 0원부터 새로 셉니다.
+  </div>
+
+  <button class="btn primary" id="ry-save">${c.currentYear}년 시작하기</button>`;
+}
+
 /* ---------- 바텀시트: 저금통 ---------- */
 export function jarSheet(jar = null) {
   const j = jar || { name: "", emoji: "🐖", target: "", saved: 0 };

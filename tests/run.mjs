@@ -9,8 +9,10 @@ import * as syncSafety from "./sync-safety.test.mjs";
 import * as insights from "./insights.test.mjs";
 import * as jars from "./jars.test.mjs";
 import * as durability from "./durability.test.mjs";
+import * as yearRollover from "./year-rollover.test.mjs";
+import * as pwa from "./pwa.test.mjs";
 
-const SUITES = [smoke, syncSafety, insights, jars, durability];
+const SUITES = [smoke, syncSafety, insights, jars, durability, yearRollover, pwa];
 
 const { server, baseURL } = await startServer();
 const browser = await chromium.launch(

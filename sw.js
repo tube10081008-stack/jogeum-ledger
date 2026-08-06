@@ -1,6 +1,6 @@
 /* 조금만 가계부 — 서비스워커 (오프라인 캐시)
  * 버전을 올리면 새 캐시로 교체되고 구버전은 삭제된다. */
-const CACHE = "jogeum-v16";
+const CACHE = "jogeum-v17";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,7 +17,12 @@ const ASSETS = [
   "./js/insights.js",
   "./js/ai.js",
   "./manifest.webmanifest",
-  "./icons/icon.svg"
+  "./icons/icon.svg",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png",
+  "./icons/icon-maskable-512.png",
+  "./icons/apple-touch-icon-180.png"
 ];
 
 self.addEventListener("install", (e) => {

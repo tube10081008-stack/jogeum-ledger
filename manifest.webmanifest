@@ -1,7 +1,7 @@
 {
   "name": "조금만 가계부",
   "short_name": "조금만",
-  "description": "저축과 소비통제를 돕는 1인용 게이미피케이션 가계부",
+  "description": "저축과 소비통제를 돕는 게이미피케이션 가계부. 데이터는 내 기기에만 저장돼요.",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
@@ -9,7 +9,41 @@
   "orientation": "portrait",
   "background_color": "#fdfaf3",
   "theme_color": "#7ed6a7",
+  "categories": [
+    "finance",
+    "productivity",
+    "lifestyle"
+  ],
   "icons": [
-    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
   ]
 }

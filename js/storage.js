@@ -32,6 +32,7 @@ const blank = () => ({
     impulseOn: true,        // 충동구매 협상 사용
     impulseThreshold: 50000,// 이 금액 이상 지출이면 협상 발동
     onboarded: false,
+    history: [],            // 지난 해 결산 [{year, goal, saved}]
   },
   txns: [],                 // {id,date,type,amount,category,memo,planned,rid,period}
   jars: [],                 // 저금통(추가 목표) {id,name,emoji,target,saved}
@@ -46,6 +47,7 @@ const blank = () => ({
 function normalize(c) {
   c.settings = Object.assign(blank().settings, c.settings);
   if (!c.settings.budgets || typeof c.settings.budgets !== "object") c.settings.budgets = {};
+  if (!Array.isArray(c.settings.history)) c.settings.history = [];
   c.txns = Array.isArray(c.txns) ? c.txns : [];
   c.mascot = c.mascot && typeof c.mascot === "object" ? c.mascot : {};
   c.jars = Array.isArray(c.jars) ? c.jars : [];
@@ -98,6 +100,19 @@ export function applyRemote(data) {
 export function setSettings(patch) {
   load();
   Object.assign(cache.settings, patch);
+  save();
+}
+
+// 해가 바뀌면 새해 목표로 넘긴다. 지난해 기록은 지우지 않고 결산만 남긴다.
+// carryOver=true면 지난해까지 모은 금액을 올해 시작 잔액으로 이어받는다.
+export function rollOverYear({ year, yearGoal, startBalance, closing }) {
+  load();
+  const prev = cache.settings.year;
+  if (prev !== year) {
+    cache.settings.history = [...(cache.settings.history || []).filter((h) => h.year !== prev),
+      { year: prev, goal: cache.settings.yearGoal || 0, saved: Math.round(closing || 0) }];
+  }
+  Object.assign(cache.settings, { year, yearGoal, startBalance });
   save();
 }
 
