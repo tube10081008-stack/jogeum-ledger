@@ -8,8 +8,9 @@ import * as smoke from "./smoke.test.mjs";
 import * as syncSafety from "./sync-safety.test.mjs";
 import * as insights from "./insights.test.mjs";
 import * as jars from "./jars.test.mjs";
+import * as durability from "./durability.test.mjs";
 
-const SUITES = [smoke, syncSafety, insights, jars];
+const SUITES = [smoke, syncSafety, insights, jars, durability];
 
 const { server, baseURL } = await startServer();
 const browser = await chromium.launch(

@@ -7,6 +7,7 @@ import { categoryBreakdown, monthDiff, spendingFeatures, shiftMonth } from "./in
 import { homeView, historyView, plannedView, questView, insightsView, addSheet, settingsSheet, jarSheet, recurringSheet, revisionsSheet, aiReviewSheet, coachSheet, impulseSheet, promoHTML } from "./views.js";
 import * as sync from "./sync.js";
 import * as ai from "./ai.js";
+import { ensurePersisted, markExported, snoozeNudge } from "./durability.js";
 import { won, wonShort } from "./format.js";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -197,6 +198,17 @@ function collectAdd(opts) {
   };
 }
 
+// 백업 파일 내려받기 — 기기·클라우드와 독립된 사본이라 가장 확실한 복구 수단
+function doExport() {
+  const blob = new Blob([exportJSON()], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `jogeum-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  markExported();
+}
+
 /* ---------- 설정 / 온보딩 시트 ---------- */
 function openSettings({ onboarding = false } = {}) {
   const c = compute();
@@ -248,12 +260,9 @@ function openSettings({ onboarding = false } = {}) {
 
   // 데이터 백업/복원/초기화
   $("#s-export", panelEl)?.addEventListener("click", () => {
-    const blob = new Blob([exportJSON()], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `jogeum-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    doExport();
+    toast("백업 파일을 저장했어요 💾");
+    openSettings();          // 안전 상태 표시 갱신
   });
   const file = $("#s-file", panelEl);
   $("#s-import", panelEl)?.addEventListener("click", () => file?.click());
@@ -732,6 +741,8 @@ viewEl.addEventListener("click", (e) => {
 
   const act = e.target.closest("[data-act]")?.dataset.act;
   if (act === "settings") return openSettings();
+  if (act === "backup-now") { doExport(); toast("백업 파일을 저장했어요 💾"); render(); return; }
+  if (act === "nudge-later") { snoozeNudge(7); toast("일주일 뒤에 다시 알려드릴게요"); render(); return; }
   if (act === "add-planned") return openAdd({ type: "expense", planned: true });
   if (act === "add-jar") return openJarNew();
   if (act === "add-recurring") return openRecurring();
@@ -791,6 +802,9 @@ if (sync.isConfigured()) {
 } else {
   maybeOnboard(); maybePromo();
 }
+
+// 브라우저에게 이 앱의 데이터를 함부로 지우지 말라고 요청 (거절될 수 있음)
+ensurePersisted().then((r) => { if (r === "granted") render(); });
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));

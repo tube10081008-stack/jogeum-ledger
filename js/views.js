@@ -4,6 +4,7 @@ import { CATEGORIES, catOf } from "./storage.js";
 import { mascot, mascotSVG, mascotState, MOODS } from "./mascot.js";
 import { getMascot } from "./storage.js";
 import { info as syncInfo } from "./sync.js";
+import { backupState } from "./durability.js";
 import { info as aiInfo } from "./ai.js";
 import { gameStats, levelTitle, weeklyQuests } from "./gamification.js";
 import { categoryBreakdown, monthlySeries, dailySpend, monthDiff, donutSVG, PALETTE, monteCarlo, anomalies,
@@ -39,6 +40,8 @@ export function homeView(c) {
       목표까지 <b>${won(c.remainingToGoal)}</b> · 올해 ${c.daysLeftInYear}일 남음
     </div>
   </div>
+
+  ${durabilityCard(c)}
 
   ${pledgeCard(c)}
 
@@ -127,6 +130,46 @@ function allowanceCard(c) {
     <div class="bar"><div class="bar__fill ${over ? "over" : ""}" style="width:${usedPct}%"></div></div>
     <div class="muted" style="font-size:.78rem;margin-top:6px">
       이번 달 예산 ${wonShort(c.monthlyBudget)} 중 ${wonShort(c.mOut)} 사용${jarM > 0 ? ` · 🔒 저금통 ${wonShort(jarM)}` : ""} · 남은 ${c.daysLeftInMonth}일
+    </div>
+  </div>`;
+}
+
+// 데이터가 사라질 위험을 알리는 카드 — 백업 수단이 하나도 없을 때만 뜬다
+function durabilityCard(c) {
+  const b = backupState(c, syncInfo().configured);
+  if (!b.showNudge) return "";
+  return `<div class="card risk">
+    <div class="risk__t">데이터가 사라질 수 있어요</div>
+    <div class="muted" style="font-size:.84rem;margin:6px 0 12px">
+      기록 ${b.txnCount}건이 <b>이 기기에만</b> 있어요. ${esc(b.reason)}.<br>
+      브라우저가 저장공간을 정리하거나 앱 데이터를 지우면 되돌릴 수 없어요.
+    </div>
+    <div class="row">
+      <button class="btn primary" data-act="backup-now">백업 파일 저장</button>
+      <button class="btn ghost" data-act="settings">클라우드 연결</button>
+    </div>
+    <button class="link" data-act="nudge-later" style="margin-top:10px">일주일 뒤에 다시 알려주기</button>
+  </div>`;
+}
+
+// 설정: 지금 데이터가 얼마나 안전한지 한눈에
+function safetyStatus(c) {
+  const b = backupState(c, syncInfo().configured);
+  const tone = { ok: "pos", warn: "gold", risk: "neg" }[b.level];
+  const head = { ok: "안전", warn: "보통", risk: "위험" }[b.level];
+  return `<div class="safety">
+    <div class="safety__row">
+      <span>백업 상태</span>
+      <b class="${tone}">${head}${b.reason ? ` · ${esc(b.reason)}` : ""}</b>
+    </div>
+    <div class="safety__row">
+      <span>저장소 보호</span>
+      <b class="${b.persist.safe ? "pos" : "muted"}">${b.persist.text}</b>
+    </div>
+    <div class="muted" style="font-size:.74rem;margin-top:6px">
+      ${b.persist.safe
+        ? "브라우저가 이 앱의 데이터를 자동으로 지우지 않아요."
+        : "브라우저가 저장공간이 부족하면 데이터를 지울 수 있어요. 홈 화면에 추가하면 보호될 가능성이 높아집니다."}
     </div>
   </div>`;
 }
@@ -970,6 +1013,7 @@ export function settingsSheet(c, { onboarding = false } = {}) {
     ${cloudSection()}
     <hr class="soft"/>
     <div class="card__title" style="margin-bottom:8px">데이터 (1인용 · 기기에만 저장)</div>
+    ${safetyStatus(c)}
     <div class="row">
       <button class="btn ghost" id="s-export">백업 내보내기</button>
       <button class="btn ghost" id="s-import">불러오기</button>
