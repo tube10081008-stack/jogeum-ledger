@@ -82,4 +82,21 @@ export async function run({ browser, baseURL, check }) {
     check("콘솔·페이지 오류 없음", page.__errors.length === 0);
     await page.close();
   }
+
+  // ── 구버전 설정({token, gistId})이 프로바이더 구조로 옮겨져야 한다
+  //    (이미 연결해 둔 사용자의 백업이 업데이트 후 끊기면 안 된다)
+  {
+    const page = await openApp(browser, baseURL, { data: blankData(), sync: GIST });
+    await mockGitHub(page, remoteWith(1, { updatedAt: Date.now() - 1000 }));
+    await page.goto(baseURL, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1500);
+    const s = await page.evaluate(async () => {
+      const sync = await import("./js/sync.js");
+      return { info: sync.info(), providers: sync.availableProviders().map((p) => p.id) };
+    });
+    check("구버전 설정에서도 연결이 유지된다", s.info.configured === true);
+    check("gist 프로바이더로 인식된다", s.info.provider === "gist");
+    check("선택 가능한 백업 수단이 노출된다", s.providers.includes("gist"));
+    await page.close();
+  }
 }

@@ -1,12 +1,17 @@
-// GitHub 비공개 Gist 자동 동기화 (서버/DB 없이 클라이언트에서 직접)
-// - 데이터(JSON 1개)를 사용자의 비공개 Gist에 저장/복원
-// - 토큰은 이 기기 localStorage에만 저장(저장소엔 절대 안 들어감), scope=gist 권장
-// - 충돌 처리: updatedAt이 더 최신인 쪽을 채택 (1인용 → last-write-wins)
+// 클라우드 백업 조율자 — 어떤 저장소를 쓰든 동일한 규칙으로 동기화한다.
+//
+// 저장 위치는 사용자가 고른다(GitHub Gist / 구글 드라이브). 어느 쪽이든 데이터는
+// 사용자 본인 계정에 저장되며 개발자 서버를 거치지 않는다.
+//
+// 안전 규칙(모든 저장소에 공통 — 실제 데이터 손실 사고에서 나온 것):
+//   빈 로컬이 채워진 원격을 절대 덮어쓰지 않는다. 기기 저장소가 초기화되면
+//   로컬은 0건이 되는데, 그 상태로 업로드하면 유일한 백업이 파괴된다.
 import { load, exportJSON, applyRemote, subscribe, getUpdatedAt } from "./storage.js";
+import * as gist from "./providers/gist.js";
+import * as gdrive from "./providers/gdrive.js";
 
 const SKEY = "jogeum.sync.v1";
-const FILE = "jogeum-backup.json";
-const DESC = "조금만 가계부 백업 (앱 자동동기화)";
+const PROVIDERS = { [gist.id]: gist, [gdrive.id]: gdrive };
 
 let cfg = null;
 let status = "off";            // off | idle | syncing | error
@@ -14,85 +19,77 @@ let statusCb = null;
 let debounce = null;
 let wired = false;
 
+/* ---------- 설정 저장 ---------- */
+// 구버전은 {token, gistId, lastSync} 형태였다 — 프로바이더 구조로 옮겨준다.
+function migrate(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  if (raw.provider || !raw.token) return raw;
+  return { provider: gist.id, lastSync: raw.lastSync || 0,
+    [gist.id]: { token: raw.token, gistId: raw.gistId } };
+}
 function getCfg() {
-  if (!cfg) { try { cfg = JSON.parse(localStorage.getItem(SKEY)) || {}; } catch { cfg = {}; } }
+  if (!cfg) { try { cfg = migrate(JSON.parse(localStorage.getItem(SKEY))); } catch { cfg = {}; } }
   return cfg;
 }
 function saveCfg() { localStorage.setItem(SKEY, JSON.stringify(cfg)); }
 
-export function isConfigured() { return !!getCfg().token; }
-export function info() { const c = getCfg(); return { configured: !!c.token, gistId: c.gistId, lastSync: c.lastSync }; }
+const provider = () => PROVIDERS[getCfg().provider] || null;
+const slice = () => getCfg()[getCfg().provider] || {};
+function putSlice(next) { cfg[cfg.provider] = next; saveCfg(); }
+
+/* ---------- 상태 ---------- */
+export function isConfigured() {
+  const p = provider();
+  return !!(p && p.isConfigured(slice()));
+}
+export function info() {
+  const p = provider();
+  const s = slice();
+  const d = p ? p.describe(s) : { label: "", detail: "" };
+  return {
+    configured: isConfigured(), provider: getCfg().provider || null,
+    providerLabel: d.label, providerDetail: d.detail,
+    lastSync: getCfg().lastSync, gistId: s.gistId,
+  };
+}
+// 사용자가 고를 수 있는 백업 수단 (설정이 안 된 것은 빠진다)
+export const availableProviders = () =>
+  Object.values(PROVIDERS).filter((p) => p.available()).map((p) => ({ id: p.id, label: p.label }));
+
 export function onStatus(fn) { statusCb = fn; }
 export function getStatus() { return status; }
 function setStatus(s) { status = s; statusCb && statusCb(s); }
 
-async function gh(path, opt = {}) {
-  const c = getCfg();
-  const res = await fetch("https://api.github.com" + path, {
-    ...opt,
-    headers: {
-      Authorization: "Bearer " + c.token,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(opt.headers || {}),
-    },
-  });
-  if (res.status === 401) throw new Error("토큰이 올바르지 않아요 (401)");
-  if (!res.ok) throw new Error("GitHub 오류 " + res.status);
-  return res.json();
-}
+const countOf = (data) => (data && Array.isArray(data.txns) ? data.txns.length : 0);
+const localCount = () => (load().txns || []).length;
 
-async function findExistingGist() {
-  const gists = await gh("/gists?per_page=100");
-  const f = gists.find((g) => g.description === DESC && g.files && g.files[FILE]);
-  return f ? f.id : null;
-}
-
-async function remoteData() {
-  const c = getCfg();
-  if (!c.gistId) return null;
-  const g = await gh("/gists/" + c.gistId);
-  const file = g.files && g.files[FILE];
-  if (!file) return null;
-  let content = file.content;
-  if (file.truncated && file.raw_url) content = await (await fetch(file.raw_url)).text();
-  try { return JSON.parse(content); } catch { return null; }
-}
-
-async function pushNow() {
-  const c = getCfg();
-  const body = { description: DESC, public: false, files: { [FILE]: { content: exportJSON() } } };
-  if (c.gistId) {
-    await gh("/gists/" + c.gistId, { method: "PATCH", body: JSON.stringify(body) });
-  } else {
-    const g = await gh("/gists", { method: "POST", body: JSON.stringify(body) });
-    cfg.gistId = g.id;
-  }
-  cfg.lastSync = Date.now(); saveCfg();
-}
-
-// 토큰으로 최초 연결 (안전): 빈 로컬이 채워진 원격을 덮어쓰지 않음.
-// 양쪽 다 데이터가 있으면 사용자에게 선택을 넘김(conflict).
-export async function connect(token) {
-  cfg = { token: token.trim() };
-  saveCfg();
+/* ---------- 연결 ----------
+ * 빈 로컬이 원격을 덮어쓰지 않도록, 양쪽 데이터를 비교해 판단한다.
+ *   원격에만 있음 → 복원(pulled) / 양쪽에 있음 → 사용자 선택(conflict) / 그 외 → 업로드 */
+export async function connect(credential, providerId = gist.id) {
+  const p = PROVIDERS[providerId];
+  if (!p) throw new Error("알 수 없는 백업 수단이에요");
   setStatus("syncing");
   try {
-    cfg.gistId = await findExistingGist();
-    saveCfg();
-    const remote = cfg.gistId ? await remoteData() : null;
-    const rCount = remote && Array.isArray(remote.txns) ? remote.txns.length : 0;
-    const lCount = Array.isArray(load().txns) ? load().txns.length : 0;
+    getCfg();
+    cfg.provider = providerId;
+    putSlice(await p.connect(slice(), credential));
     wire();
-    if (rCount > 0 && lCount === 0) {                 // 원격에만 데이터 → 복원
-      applyRemote(remote); cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
+
+    const remote = await p.read(slice()).catch(() => null);
+    const rCount = countOf(remote);
+    const lCount = localCount();
+
+    if (rCount > 0 && lCount === 0) {
+      applyRemote(remote);
+      cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
       return { action: "pulled", count: rCount };
     }
-    if (rCount > 0 && lCount > 0) {                   // 양쪽 데이터 → 사용자 선택
+    if (rCount > 0 && lCount > 0) {
       setStatus("idle");
       return { action: "conflict", remoteCount: rCount, localCount: lCount };
     }
-    await pushNow();                                  // 원격 없음/빈 → 로컬 올림
+    await pushNow();
     setStatus("idle");
     return { action: "pushed", count: lCount };
   } catch (e) { setStatus("error"); throw e; }
@@ -100,83 +97,44 @@ export async function connect(token) {
 
 // 충돌 시 사용자 선택 적용: 'remote'=클라우드 불러오기, 'local'=이 기기로 덮어쓰기
 export async function resolveConflict(choice) {
+  const p = provider();
+  if (!p) return;
   setStatus("syncing");
   try {
     if (choice === "remote") {
-      const remote = await remoteData();
+      const remote = await p.read(slice());
       if (remote) applyRemote(remote);
     } else {
-      await pushNow();
+      await pushNow();          // 사용자가 명시적으로 고른 경우라 안전장치를 적용하지 않는다
     }
     cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
   } catch (e) { setStatus("error"); throw e; }
 }
 
-// Gist 수정 이력에서 과거 백업들을 가져옴 (복구용)
-export async function getRevisions(limit = 20) {
-  const c = getCfg();
-  if (!c.gistId) return [];
-  const g = await gh("/gists/" + c.gistId);
-  const hist = (g.history || []).slice(0, limit);
-  const out = [];
-  for (const h of hist) {
-    try {
-      const rev = await gh("/gists/" + c.gistId + "/" + h.version);
-      const f = rev.files && rev.files[FILE];
-      let content = f ? f.content : null;
-      if (f && f.truncated && f.raw_url) content = await (await fetch(f.raw_url)).text();
-      let data = null; try { data = JSON.parse(content); } catch {}
-      out.push({
-        version: h.version, date: h.committed_at,
-        txns: data && Array.isArray(data.txns) ? data.txns.length : 0, data,
-      });
-    } catch {}
-  }
-  return out;
-}
-
-// 선택한 과거 백업으로 되돌리고 즉시 다시 올림
-export async function restoreRevision(data) {
-  applyRemote(data);
-  await pushNow();
-  cfg.lastSync = Date.now(); saveCfg(); setStatus("idle");
-}
-
 export function disconnect() {
+  const p = provider();
+  p?.disconnect?.();
   cfg = {}; saveCfg(); setStatus("off");
 }
 
-// 양방향 1회 동기화: 더 최신인 쪽을 채택
-export async function syncNow() {
-  if (!isConfigured()) return false;
-  setStatus("syncing");
-  try {
-    const remote = await remoteData();
-    const localT = getUpdatedAt();
-    const localCount = (load().txns || []).length;
-    const rCount = remote && Array.isArray(remote.txns) ? remote.txns.length : 0;
-    // 원격이 더 최신이거나, 로컬이 비었는데 원격에 기록이 있으면 받아씀.
-    // 후자는 기기 저장소 초기화 사고에서 빈 데이터가 클라우드를 덮어쓰는 것을 막는다.
-    if (remote && ((remote.updatedAt || 0) > localT || (localCount === 0 && rCount > 0))) {
-      applyRemote(remote);
-    } else {
-      await pushNow();        // 로컬이 최신(또는 원격 없음/빈 상태) → 올림
-    }
-    setStatus("idle");
-    return true;
-  } catch (e) { setStatus("error"); throw e; }
+/* ---------- 업로드 ---------- */
+async function pushNow() {
+  const p = provider();
+  if (!p) return;
+  putSlice(await p.write(slice(), exportJSON()));
+  cfg.lastSync = Date.now(); saveCfg();
 }
 
-// 안전장치: 로컬이 비었는데 원격에 기록이 있으면 절대 업로드하지 않는다.
-// (기기 저장소가 초기화/삭제된 상황에서 빈 데이터가 클라우드 백업을 덮어쓰는 사고 방지)
-// 원격에 기록이 있으면 오히려 그걸 복원한다. true를 반환하면 업로드를 건너뛴다.
+// 안전장치: 로컬이 비었는데 원격에 기록이 있으면 업로드하지 않고 오히려 복원한다.
+// (기기 저장소가 초기화된 상태로 업로드되면 백업이 파괴된다)
+// true를 반환하면 업로드를 건너뛴다.
 async function blockEmptyOverwrite() {
-  if ((load().txns || []).length > 0) return false;      // 로컬에 기록 있음 → 정상 업로드
+  if (localCount() > 0) return false;
+  const p = provider();
   let remote = null;
-  try { remote = await remoteData(); } catch { return true; }  // 확인 불가 → 안전하게 업로드 보류
-  const rCount = remote && Array.isArray(remote.txns) ? remote.txns.length : 0;
-  if (rCount > 0) { applyRemote(remote); return true; }  // 원격 기록 복원
-  return false;                                          // 양쪽 다 비어있음 → 업로드해도 무해
+  try { remote = await p.read(slice()); } catch { return true; }   // 확인 불가 → 업로드 보류
+  if (countOf(remote) > 0) { applyRemote(remote); return true; }
+  return false;
 }
 
 async function pushSafe() {
@@ -188,7 +146,42 @@ async function pushSafe() {
   } catch { setStatus("error"); }
 }
 
-// 로컬 변경 → 1.5초 디바운스 후 자동 업로드
+/* ---------- 양방향 1회 동기화 ---------- */
+export async function syncNow() {
+  if (!isConfigured()) return false;
+  const p = provider();
+  setStatus("syncing");
+  try {
+    const remote = await p.read(slice());
+    const localT = getUpdatedAt();
+    const rCount = countOf(remote);
+    // 원격이 더 최신이거나, 로컬이 비었는데 원격에 기록이 있으면 받아쓴다.
+    // 후자가 기기 초기화 사고에서 백업을 지켜준다.
+    if (remote && ((remote.updatedAt || 0) > localT || (localCount() === 0 && rCount > 0))) {
+      applyRemote(remote);
+    } else {
+      await pushNow();
+    }
+    cfg.lastSync = Date.now(); saveCfg();
+    setStatus("idle");
+    return true;
+  } catch (e) { setStatus("error"); throw e; }
+}
+
+/* ---------- 과거 버전 복원 ---------- */
+export async function getRevisions(limit = 20) {
+  const p = provider();
+  if (!p || !p.revisions) return [];
+  return p.revisions(slice(), limit);
+}
+export async function restoreRevision(data) {
+  applyRemote(data);
+  await pushNow();
+  setStatus("idle");
+}
+
+/* ---------- 자동 업로드 ---------- */
+// 로컬 변경 → 1.5초 디바운스 후 업로드
 function wire() {
   if (wired) { if (isConfigured() && status === "off") setStatus("idle"); return; }
   wired = true;
@@ -200,5 +193,4 @@ function wire() {
   if (isConfigured()) setStatus("idle");
 }
 
-// 앱 시작 시 호출
 export function start() { wire(); }
