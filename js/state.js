@@ -34,8 +34,17 @@ export function compute() {
   const mIn = sumMonth(actual, thisMonth, "income");
   const mOut = sumMonth(actual, thisMonth, "expense");
   const mNet = mIn - mOut;
-  const monthlyTarget = goal > 0 ? goal / 12 : 0;            // 월 저축 목표
-  const monthPace = monthlyTarget > 0 ? mNet / monthlyTarget : 0;
+
+  // 이번 달 목표 — 남은 목표를 '올해 남은 개월(이번 달 포함)'로 나눈, 실제로 필요한 금액.
+  // 연 목표를 늘 12로 나누면 연중에 시작한 사람에게 실제보다 낮은 목표를 알려주게 된다.
+  // (예: 8월에 1,000만 목표 → 12로 나누면 83만이지만, 5개월 남았으니 실제로는 200만이 필요)
+  const remainingToGoal = Math.max(0, goal - saved);
+  const goalReached = goal > 0 && saved >= goal;
+  const monthsLeftInclusive = Math.max(1, 12 - Number(today.slice(5, 7)) + 1);
+  const monthlyTarget = goal > 0 ? remainingToGoal / monthsLeftInclusive : 0;
+  // 게임화용 균등 기준 — 매달 흔들리면 이미 받은 XP가 줄어들 수 있어 고정값을 쓴다
+  const monthlyEven = goal > 0 ? goal / 12 : 0;
+  const monthPace = monthlyTarget > 0 ? mNet / monthlyTarget : (goalReached ? 1 : 0);
 
   // 예정(미래 계획) — 앞으로 30일
   const upcoming = planned
@@ -53,7 +62,6 @@ export function compute() {
   // 남은 정보
   // 연도 전환 전이면 음수가 될 수 있으므로 0으로 막는다
   const daysLeftInYear = Math.max(0, daysBetween(today, `${year}-12-31`));
-  const remainingToGoal = Math.max(0, goal - saved);
 
   // 무지출 챌린지: 지출이 0원인 날
   const expenseDays = new Set(actual.filter((t) => t.type === "expense").map((t) => t.date));
@@ -124,7 +132,7 @@ export function compute() {
     wishlist: wishlistView, resistedTotal, resistedThisMonth, resistedCount, resistedLog: resistedList,
     year, currentYear, needsYearRollover, today, thisMonth,
     yIn, yOut, saved, goal, progress, remainingToGoal,
-    mIn, mOut, mNet, monthlyTarget, monthPace,
+    mIn, mOut, mNet, monthlyTarget, monthlyEven, monthPace, monthsLeftInclusive, goalReached,
     upcoming, plInRaw, plOutRaw, projected,
     loggedDays, streak, daysLeftInYear,
     monthlyBudget, budgetLeft, todayAllowance, daysLeftInMonth, daysInMonth, envelopes,

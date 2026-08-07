@@ -81,9 +81,11 @@ export function gameStats(c) {
   return { xp, level, lvlPct, next, cur, badges, reachedMs, monthsUnderBudget };
 }
 
-// 월 저축목표(연목표/12)를 넘긴 '지난 달' 수
+// 월 저축목표를 넘긴 '지난 달' 수.
+// 표시용 목표는 남은 개월에 따라 달라지므로, 뱃지 기준은 균등 배분값으로 고정한다
+// (기준이 오르내리면 이미 받은 XP가 줄어들 수 있다).
 function monthsHittingTarget(c) {
-  if (c.monthlyTarget <= 0) return 0;
+  if (!(c.monthlyEven > 0)) return 0;
   const byMonth = {};
   for (const t of c.actual) {
     const k = monthKey(t.date);
@@ -91,5 +93,5 @@ function monthsHittingTarget(c) {
     byMonth[k] = byMonth[k] || 0;
     byMonth[k] += t.type === "income" ? t.amount : -t.amount;
   }
-  return Object.values(byMonth).filter((net) => net >= c.monthlyTarget).length;
+  return Object.values(byMonth).filter((net) => net >= c.monthlyEven).length;
 }

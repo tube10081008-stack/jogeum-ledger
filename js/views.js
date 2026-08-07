@@ -17,7 +17,7 @@ export function homeView(c) {
   const g = gameStats(c);
   const pct = Math.round(c.progress * 100);
   const overMonth = c.mNet < c.monthlyTarget && c.monthlyTarget > 0;
-  const mPctRaw = c.monthlyTarget > 0 ? (c.mNet / c.monthlyTarget) * 100 : 0;
+  const mPctRaw = c.monthlyTarget > 0 ? (c.mNet / c.monthlyTarget) * 100 : (c.goalReached ? 100 : 0);
   const mPct = Math.max(0, Math.min(100, Math.round(mPctRaw)));
 
   return `
@@ -49,7 +49,7 @@ export function homeView(c) {
 
   <div class="card">
     <div class="card__head"><span class="card__title">이번 달</span>
-      <span class="muted" style="font-size:.78rem">월 저축목표 ${wonShort(c.monthlyTarget)}</span></div>
+      <span class="muted" style="font-size:.78rem">${c.goalReached ? "목표 달성 🎉" : `이번 달 목표 ${wonShort(c.monthlyTarget)}`}</span></div>
     <div class="grid3">
       <div class="stat"><div class="stat__v pos">${wonShort(c.mIn)}</div><div class="stat__l">수입</div></div>
       <div class="stat"><div class="stat__v neg">${wonShort(c.mOut)}</div><div class="stat__l">지출</div></div>
@@ -57,7 +57,11 @@ export function homeView(c) {
     </div>
     <div class="bar"><div class="bar__fill ${overMonth ? "over" : ""}" style="width:${mPct}%"></div></div>
     <div class="muted" style="font-size:.78rem;margin-top:6px">
-      ${c.monthlyTarget > 0 ? `이번 달 저축목표의 <b>${Math.round(mPctRaw)}%</b> 달성` : "목표를 설정하면 진행률이 표시돼요"}
+      ${c.goalReached
+        ? "올해 목표를 이미 달성했어요! 이제부터는 보너스예요 🎉"
+        : c.monthlyTarget > 0
+          ? `이번 달 목표의 <b>${Math.round(mPctRaw)}%</b> 달성 · 올해 <b>${c.monthsLeftInclusive}개월</b> 남아 남은 ${wonShort(c.remainingToGoal)}을 나눈 금액이에요`
+          : "목표를 설정하면 진행률이 표시돼요"}
     </div>
   </div>
 
