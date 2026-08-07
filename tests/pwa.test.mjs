@@ -2,7 +2,8 @@
 export const name = "PWA 설치 자산 · 접근성";
 
 export async function run({ browser, baseURL, check }) {
-  const page = await browser.newPage();
+  const ctx = await browser.newContext({ serviceWorkers: "block" });
+  const page = await ctx.newPage();
   await page.goto(baseURL, { waitUntil: "networkidle" });
 
   // ── 매니페스트
@@ -38,4 +39,5 @@ export async function run({ browser, baseURL, check }) {
   check("서비스워커가 durability.js를 캐시한다", sw.includes("durability.js"));
 
   await page.close();
+  await ctx.close();
 }

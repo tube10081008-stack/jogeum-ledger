@@ -11,8 +11,9 @@ import * as jars from "./jars.test.mjs";
 import * as durability from "./durability.test.mjs";
 import * as yearRollover from "./year-rollover.test.mjs";
 import * as pwa from "./pwa.test.mjs";
+import * as gdrive from "./gdrive.test.mjs";
 
-const SUITES = [smoke, syncSafety, insights, jars, durability, yearRollover, pwa];
+const SUITES = [smoke, syncSafety, insights, jars, durability, yearRollover, pwa, gdrive];
 
 const { server, baseURL } = await startServer();
 const browser = await chromium.launch(

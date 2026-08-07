@@ -67,7 +67,11 @@ export const blankData = (over = {}) => ({
 
 // 온보딩·광고팝업을 건너뛰고 원하는 상태로 앱을 띄운다
 export async function openApp(browser, baseURL, { data, sync, ai, skipPromo = true, viewport } = {}) {
-  const page = await browser.newPage(viewport ? { viewport } : {});
+  // 서비스워커를 막는다. sw.js가 모든 GET을 가로채는데(clients.claim), 활성화 타이밍에 따라
+  // 네트워크 모킹이 통과되기도 하고 안 되기도 해서 테스트가 불안정해진다.
+  const ctx = await browser.newContext({ serviceWorkers: "block", ...(viewport ? { viewport } : {}) });
+  const page = await ctx.newPage();
+  page.once("close", () => ctx.close().catch(() => {}));
   const errors = [];
   page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
   page.on("console", (m) => { if (m.type() === "error") errors.push("console: " + m.text()); });

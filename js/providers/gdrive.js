@@ -8,7 +8,7 @@
 //
 // 클라이언트 ID는 공개돼도 되는 값이다(비밀키는 브라우저 앱에서 쓰지 않는다).
 // 값이 비어 있으면 이 백업 수단은 목록에 나타나지 않는다.
-export const CLIENT_ID = "";
+export const CLIENT_ID = "707693737132-gvnu98cfpinc92bgqm3sch1dpb994som.apps.googleusercontent.com";
 
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 const GIS_SRC = "https://accounts.google.com/gsi/client";

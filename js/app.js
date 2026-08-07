@@ -279,27 +279,35 @@ function openSettings({ onboarding = false } = {}) {
   });
 
   // 클라우드 백업(GitHub Gist)
+  // 백업 수단이 무엇이든 연결 결과 처리는 같다 (빈 데이터가 백업을 덮지 않도록 선택을 받는다)
+  const finishConnect = async (res) => {
+    if (res.action === "conflict") {
+      const useRemote = confirm(
+        `클라우드에 ${res.remoteCount}건, 이 기기에 ${res.localCount}건의 기록이 있어요.\n\n` +
+        `[확인] 클라우드 데이터를 불러오기 (이 기기 내용은 대체됨)\n` +
+        `[취소] 이 기기 데이터로 클라우드를 덮어쓰기`);
+      await sync.resolveConflict(useRemote ? "remote" : "local");
+      toast(useRemote ? "클라우드에서 불러왔어요 ☁️" : "이 기기 데이터로 저장했어요");
+    } else if (res.action === "pulled") {
+      toast(`클라우드에서 ${res.count}건 복원했어요 ☁️`);
+    } else {
+      toast("연결됐어요 ☁️ 자동 백업 시작!");
+    }
+    openSettings(); render();
+  };
+
+  $("#sync-gdrive", panelEl)?.addEventListener("click", async () => {
+    toast("구글 계정 연결 중…");
+    try { await finishConnect(await sync.connect(null, "gdrive")); }
+    catch (e) { toast("연결 실패: " + e.message); }
+  });
+
   $("#sync-connect", panelEl)?.addEventListener("click", async () => {
     const token = $("#sync-token", panelEl)?.value || "";
     if (!token.trim()) return toast("토큰을 붙여넣어 주세요");
     toast("연결 중…");
-    try {
-      const res = await sync.connect(token);
-      if (res.action === "conflict") {
-        // 빈 데이터로 클라우드를 덮어쓰지 않도록 사용자에게 선택
-        const useRemote = confirm(
-          `클라우드에 ${res.remoteCount}건, 이 기기에 ${res.localCount}건의 기록이 있어요.\n\n` +
-          `[확인] 클라우드 데이터를 불러오기 (이 기기 내용은 대체됨)\n` +
-          `[취소] 이 기기 데이터로 클라우드를 덮어쓰기`);
-        await sync.resolveConflict(useRemote ? "remote" : "local");
-        toast(useRemote ? "클라우드에서 불러왔어요 ☁️" : "이 기기 데이터로 저장했어요");
-      } else if (res.action === "pulled") {
-        toast(`클라우드에서 ${res.count}건 복원했어요 ☁️`);
-      } else {
-        toast("연결됐어요 ☁️ 자동 백업 시작!");
-      }
-      openSettings(); render();
-    } catch (e) { toast("연결 실패: " + e.message); }
+    try { await finishConnect(await sync.connect(token, "gist")); }
+    catch (e) { toast("연결 실패: " + e.message); }
   });
   $("#sync-now", panelEl)?.addEventListener("click", async () => {
     toast("동기화 중…");

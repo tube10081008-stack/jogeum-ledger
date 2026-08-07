@@ -3,7 +3,7 @@ import { won, wonShort, fmtDayLabel, fmtDate, esc, todayISO } from "./format.js"
 import { CATEGORIES, catOf } from "./storage.js";
 import { mascot, mascotSVG, mascotState, MOODS } from "./mascot.js";
 import { getMascot } from "./storage.js";
-import { info as syncInfo } from "./sync.js";
+import { info as syncInfo, availableProviders as syncProviders } from "./sync.js";
 import { backupState } from "./durability.js";
 import { info as aiInfo } from "./ai.js";
 import { gameStats, levelTitle, weeklyQuests } from "./gamification.js";
@@ -957,9 +957,10 @@ function cloudSection() {
   if (s.configured) {
     const last = s.lastSync ? new Date(s.lastSync).toLocaleString("ko-KR") : "아직 없음";
     return `
-      <div class="card__title" style="margin-bottom:4px">클라우드 백업 · GitHub <span id="sync-badge" class="sync-badge">●</span></div>
+      <div class="card__title" style="margin-bottom:4px">클라우드 백업 · ${esc(s.providerLabel)}
+        <span id="sync-badge" class="sync-badge">●</span></div>
       <div class="muted" style="font-size:.76rem;margin-bottom:10px">
-        연결됨 — 기록할 때마다 비공개 Gist에 자동 저장돼요.<br>마지막 동기화: <b>${last}</b>
+        연결됨 — 기록할 때마다 ${esc(s.providerDetail)}에 자동 저장돼요.<br>마지막 동기화: <b>${last}</b>
       </div>
       <div class="row">
         <button class="btn ghost" id="sync-now">지금 동기화</button>
@@ -967,22 +968,38 @@ function cloudSection() {
       </div>
       <button class="btn ghost" id="sync-restore" style="margin-top:10px">⏪ 이전 백업에서 복원</button>`;
   }
+
+  const canDrive = syncProviders().some((p) => p.id === "gdrive");
   return `
-    <div class="card__title" style="margin-bottom:4px">클라우드 백업 · GitHub (선택)</div>
-    <div class="muted" style="font-size:.76rem;margin-bottom:10px">
-      비공개 Gist에 자동 백업하면 <b>캐시 삭제·기기 변경에도</b> 데이터가 안전해요.
-      토큰은 이 기기에만 저장되고 저장소엔 올라가지 않아요.
+    <div class="card__title" style="margin-bottom:4px">클라우드 백업 (선택)</div>
+    <div class="muted" style="font-size:.76rem;margin-bottom:12px">
+      백업해두면 <b>캐시 삭제·기기 변경에도</b> 데이터가 안전해요.
+      파일은 <b>내 계정</b>에 저장되고, 앱 만든 사람은 볼 수 없어요.
     </div>
-    <ol class="muted" style="font-size:.76rem;margin:0 0 10px 18px;line-height:1.7">
-      <li><a class="link" href="https://github.com/settings/tokens/new?scopes=gist&description=조금만가계부" target="_blank" rel="noopener">이 링크</a>로 토큰 생성 (scope <b>gist</b>만 체크)</li>
-      <li>생성된 <b>ghp_…</b> 토큰을 아래에 붙여넣고 연결</li>
-    </ol>
-    <div class="field">
-      <input class="input" id="sync-token" type="password" placeholder="ghp_… 토큰 붙여넣기"
-        autocomplete="off" />
-    </div>
-    <button class="btn primary" id="sync-connect">연결하기</button>`;
+
+    ${canDrive ? `
+      <button class="btn primary" id="sync-gdrive">구글 드라이브에 백업하기</button>
+      <div class="muted" style="font-size:.74rem;margin:8px 0 14px">
+        내 드라이브에 <b>조금만가계부-백업.json</b> 파일로 저장돼요.
+        앱은 이 파일 하나만 다룰 수 있고 다른 파일은 볼 수 없어요.
+      </div>` : ""}
+
+    <details class="fold">
+      <summary>GitHub 계정으로 백업하기</summary>
+      <div class="muted" style="font-size:.76rem;margin:10px 0">
+        비공개 Gist에 저장돼요. 토큰은 이 기기에만 저장됩니다.
+      </div>
+      <ol class="muted" style="font-size:.76rem;margin:0 0 10px 18px;line-height:1.7">
+        <li><a class="link" href="https://github.com/settings/tokens/new?scopes=gist&description=조금만가계부" target="_blank" rel="noopener">이 링크</a>로 토큰 생성 (scope <b>gist</b>만 체크, 만료 <b>없음</b> 권장)</li>
+        <li>생성된 <b>ghp_…</b> 토큰을 아래에 붙여넣고 연결</li>
+      </ol>
+      <div class="field">
+        <input class="input" id="sync-token" type="password" placeholder="ghp_… 토큰 붙여넣기" autocomplete="off" />
+      </div>
+      <button class="btn ghost" id="sync-connect">GitHub으로 연결하기</button>
+    </details>`;
 }
+
 
 /* ---------- 바텀시트: 온보딩 / 설정 ---------- */
 export function settingsSheet(c, { onboarding = false } = {}) {

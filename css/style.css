@@ -193,6 +193,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .trend__bar{width:70%;min-height:3px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--mint),var(--mint-d))}
 .trend__lbl{font-size:.7rem;color:var(--ink-soft);margin-top:5px}
 
+/* 접기 영역 (대체 백업 수단) */
+.fold{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafbfa}
+.fold summary{cursor:pointer;font-size:.86rem;font-weight:600;list-style:none}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary::before{content:"▸ ";color:var(--ink-soft)}
+.fold[open] summary::before{content:"▾ "}
+
 /* 데이터 보존 경고 카드 */
 .risk{border:1.5px solid #f0c9c0;background:linear-gradient(160deg,#fdf2ee,var(--card))}
 .risk__t{font-weight:800;font-size:1rem}
