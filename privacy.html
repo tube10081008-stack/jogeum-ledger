@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>개인정보처리방침 · 조금만 가계부</title>
+<style>
+  :root{--ink:#2f3a38;--soft:#6b7a76;--line:#ece6da;--mint:#54b487;--cream:#fdfaf3}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--cream);color:var(--ink);line-height:1.8;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 20px 80px}
+  h1{font-size:1.6rem;font-weight:800;margin:0 0 6px}
+  .sub{color:var(--soft);font-size:.88rem;margin:0 0 28px}
+  h2{font-size:1.1rem;font-weight:800;margin:34px 0 10px;padding-top:18px;border-top:1px solid var(--line)}
+  h2:first-of-type{border-top:0;padding-top:0}
+  p,li{font-size:.95rem}
+  ul{padding-left:20px}
+  li{margin:6px 0}
+  .box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .key{background:#eafaf0;border-left:4px solid var(--mint);border-radius:6px;padding:14px 16px;margin:18px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.88rem}
+  th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top;background:#fff}
+  th{background:#f4f8f5;font-weight:700}
+  code{background:#f2f6f3;padding:1px 6px;border-radius:4px;font-size:.85em}
+  a{color:var(--mint)}
+  .back{display:inline-block;margin-bottom:22px;font-size:.88rem;text-decoration:none;color:var(--mint)}
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--soft);font-size:.84rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="./">← 조금만 가계부로 돌아가기</a>
+  <h1>개인정보처리방침</h1>
+  <p class="sub">조금만 가계부 · 시행일 2026년 8월 1일</p>
+
+  <div class="key">
+    <b>요약</b><br>
+    조금만 가계부는 <b>서버가 없습니다.</b> 회원가입이 없고, 가계부 내용은 사용자의 기기에만 저장됩니다.
+    개발자는 사용자의 어떤 개인정보도 수집·보관·열람하지 않습니다.
+  </div>
+
+  <h2>1. 개발자가 수집하는 정보</h2>
+  <p><b>없습니다.</b> 이 앱은 데이터를 전송받는 자체 서버를 두고 있지 않습니다.
+  회원가입, 로그인, 이메일 수집, 광고 식별자, 접속 분석 도구를 일절 사용하지 않습니다.</p>
+
+  <h2>2. 기기에 저장되는 정보</h2>
+  <p>아래 정보는 사용자의 브라우저 저장소(localStorage)에만 기록되며 외부로 자동 전송되지 않습니다.</p>
+  <table>
+    <tr><th>저장 항목</th><th>내용</th></tr>
+    <tr><td><code>jogeum.v1</code></td><td>가계부 데이터 — 수입·지출 기록, 메모, 목표, 예산, 저금통, 반복 거래, 위시리스트</td></tr>
+    <tr><td><code>jogeum.sync.v1</code></td><td>클라우드 백업 연결 정보 — GitHub 토큰 또는 구글 드라이브 파일 식별자</td></tr>
+    <tr><td><code>jogeum.ai.v1</code></td><td>사용자가 입력한 Gemini API 키와 모델 선택</td></tr>
+    <tr><td><code>jogeum.durability.v1</code></td><td>마지막 백업 시각, 알림 표시 상태</td></tr>
+    <tr><td><code>jogeum.promo</code></td><td>안내 팝업을 마지막으로 본 날짜</td></tr>
+  </table>
+  <p>연결 토큰과 API 키는 <b>해당 기기에만</b> 저장되며, 클라우드 백업 대상에서도 제외됩니다.</p>
+
+  <h2>3. 사용자가 직접 연결했을 때만 일어나는 외부 전송</h2>
+  <p>아래 기능은 <b>기본적으로 꺼져 있고</b>, 사용자가 설정에서 직접 연결한 경우에만 동작합니다.
+  전송은 사용자의 브라우저에서 각 서비스로 직접 이루어지며 개발자를 거치지 않습니다.</p>
+
+  <div class="box">
+    <b>가) 구글 드라이브 백업</b>
+    <ul>
+      <li>전송 대상: 가계부 데이터 전체 (<code>조금만가계부-백업.json</code>)</li>
+      <li>저장 위치: <b>사용자 본인의 구글 드라이브</b></li>
+      <li>권한 범위: <code>drive.file</code> — 이 앱이 만든 파일만 다룰 수 있으며,
+        사용자의 다른 파일은 조회하거나 접근할 수 없습니다.</li>
+      <li>사용자는 언제든 드라이브에서 해당 파일을 직접 열람·내려받기·삭제할 수 있습니다.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <b>나) GitHub Gist 백업</b>
+    <ul>
+      <li>전송 대상: 가계부 데이터 전체</li>
+      <li>저장 위치: <b>사용자 본인 계정의 비공개 Gist</b></li>
+      <li>권한 범위: <code>gist</code> — Gist 외의 저장소에는 접근하지 않습니다.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <b>다) AI 기능 (Google Gemini)</b>
+    <ul>
+      <li>전송 대상: 질문 내용과 함께 <b>거래 내역(날짜·금액·분류·메모)과 재정 요약</b>이 전송됩니다.
+        영수증 인식 기능을 쓰면 촬영한 <b>이미지</b>도 전송됩니다.</li>
+      <li>전송처: Google Gemini API (사용자 본인의 API 키로 호출)</li>
+      <li>API 사용 요금은 사용자 본인에게 청구됩니다.</li>
+      <li>전송된 내용의 처리는 Google의 정책을 따릅니다.
+        민감한 메모를 남기지 않도록 유의해 주세요.</li>
+    </ul>
+  </div>
+
+  <p>각 서비스에 저장된 데이터는 해당 서비스의 개인정보처리방침을 따릅니다 —
+  <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google</a>,
+  <a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement" target="_blank" rel="noopener">GitHub</a>.</p>
+
+  <h2>4. 웹사이트 접속 기록</h2>
+  <p>이 앱은 GitHub Pages로 제공됩니다. 페이지 접속 과정에서 GitHub이 IP 주소 등
+  접속 기록을 수집할 수 있으며, 이는 GitHub의 정책에 따릅니다. 개발자는 이 기록을 열람하지 않습니다.</p>
+
+  <h2>5. 보관 기간과 삭제</h2>
+  <ul>
+    <li><b>기기 데이터</b>: 사용자가 삭제할 때까지 보관됩니다.
+      앱의 <b>설정 → 전체 초기화</b>, 또는 브라우저의 사이트 데이터 삭제로 즉시 지울 수 있습니다.</li>
+    <li><b>클라우드 백업</b>: 사용자 본인 계정에 있으므로, 구글 드라이브나 GitHub에서 직접 삭제할 수 있습니다.
+      앱에서 <b>연결 해제</b>를 해도 이미 저장된 파일은 남으므로, 필요하면 해당 서비스에서 삭제해 주세요.</li>
+    <li>개발자가 보관하는 데이터가 없으므로 개발자에게 삭제를 요청할 대상이 없습니다.</li>
+  </ul>
+
+  <h2>6. 데이터 유실에 대한 안내</h2>
+  <p>데이터가 기기에만 저장되는 구조상, 브라우저가 저장공간을 정리하거나 사용자가
+  사이트 데이터를 삭제하면 <b>기록이 사라질 수 있습니다.</b>
+  앱은 이를 줄이기 위해 저장소 보호를 요청하고 백업을 안내하지만, 완전히 막을 수는 없습니다.
+  중요한 기록은 클라우드 백업을 연결하거나 백업 파일을 내려받아 보관해 주세요.</p>
+
+  <h2>7. 만 14세 미만 이용자</h2>
+  <p>이 앱은 개인정보를 수집하지 않으므로 별도의 법정대리인 동의 절차를 두고 있지 않습니다.
+  다만 클라우드 백업이나 AI 기능은 외부 서비스 계정이 필요하며, 각 서비스의 연령 정책을 따릅니다.</p>
+
+  <h2>8. 방침 변경</h2>
+  <p>내용이 바뀌면 이 페이지에 시행일과 함께 게시합니다.</p>
+
+  <h2>9. 문의</h2>
+  <p>개인정보 처리에 관한 문의는 아래로 보내주세요.</p>
+  <div class="box">
+    이메일: <b>[연락처 이메일을 입력하세요]</b><br>
+    저장소: <a href="https://github.com/tube10081008-stack/jogeum-ledger" target="_blank" rel="noopener">github.com/tube10081008-stack/jogeum-ledger</a>
+  </div>
+
+  <footer>
+    조금만 가계부 · <a href="./terms.html">이용약관</a> · <a href="./">앱으로 돌아가기</a>
+  </footer>
+</div>
+</body>
+</html>

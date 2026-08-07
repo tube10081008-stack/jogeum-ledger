@@ -38,6 +38,13 @@ export async function run({ browser, baseURL, check }) {
     check(`${route} 화면이 렌더된다`, html.length > 50);
   }
 
+  // 설정에서 법적 문서로 갈 수 있어야 한다
+  await page.click('[data-act="settings"]');
+  await page.waitForSelector(".legal");
+  const links = await page.$$eval(".legal a", (a) => a.map((x) => x.getAttribute("href")));
+  check("설정에서 개인정보처리방침으로 갈 수 있다", links.includes("./privacy.html"));
+  check("설정에서 이용약관으로 갈 수 있다", links.includes("./terms.html"));
+
   check("콘솔·페이지 오류 없음", page.__errors.length === 0);
   if (page.__errors.length) console.log("   ", page.__errors.join("\n    "));
   await page.close();

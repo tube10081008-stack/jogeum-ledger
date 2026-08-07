@@ -193,6 +193,11 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .trend__bar{width:70%;min-height:3px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--mint),var(--mint-d))}
 .trend__lbl{font-size:.7rem;color:var(--ink-soft);margin-top:5px}
 
+/* 설정 하단 법적 문서 링크 */
+.legal{display:flex;justify-content:center;gap:8px;margin-top:20px;
+  font-size:.78rem;color:var(--ink-soft)}
+.legal a{color:var(--ink-soft);text-decoration:underline}
+
 /* 접기 영역 (대체 백업 수단) */
 .fold{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafbfa}
 .fold summary{cursor:pointer;font-size:.86rem;font-weight:600;list-style:none}

@@ -1077,5 +1077,10 @@ export function settingsSheet(c, { onboarding = false } = {}) {
     </div>
     <button class="btn danger" id="s-reset" style="margin-top:10px">전체 초기화</button>
     <input type="file" id="s-file" accept="application/json" hidden />
+    <div class="legal">
+      <a href="./privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>
+      <span aria-hidden="true">·</span>
+      <a href="./terms.html" target="_blank" rel="noopener">이용약관</a>
+    </div>
   `}`;
 }

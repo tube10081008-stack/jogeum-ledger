@@ -52,7 +52,7 @@ jobs:
         # 테스트·설정 파일이 공개 사이트에 올라가지 않도록 앱 자산만 복사한다.
         run: |
           mkdir -p _site
-          cp index.html manifest.webmanifest sw.js _site/
+          cp index.html manifest.webmanifest sw.js privacy.html terms.html _site/
           cp -r css js icons _site/
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

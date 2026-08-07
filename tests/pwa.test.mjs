@@ -38,6 +38,16 @@ export async function run({ browser, baseURL, check }) {
   check("서비스워커가 PNG 아이콘을 캐시한다", sw.includes("icon-192.png") && sw.includes("icon-512.png"));
   check("서비스워커가 durability.js를 캐시한다", sw.includes("durability.js"));
 
+  // ── 법적 문서 (구글 OAuth 확인에 개인정보처리방침 URL이 필요하다)
+  for (const [file, title] of [["privacy.html", "개인정보처리방침"], ["terms.html", "이용약관"]]) {
+    const res = await page.request.get(baseURL + file);
+    const html = await res.text();
+    check(`${file} 이 배포된다`, res.ok());
+    check(`${file} 에 ${title} 내용이 있다`, html.includes(title));
+  }
+  const licence = await page.request.get(baseURL + "LICENSE");
+  check("LICENSE 파일이 있다", licence.ok());
+
   await page.close();
   await ctx.close();
 }
